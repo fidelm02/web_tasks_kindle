@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>{% block title %}Kindle Tasks{% endblock %}</title>
+  <style>
+    /* Reset e-ink: sin animaciones, sin sombras, alto contraste */
+    * {
+      box-sizing: border-box;
+      transition: none !important;
+      animation: none !important;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #FFFFFF;
+      color: #000000;
+      font-family: Georgia, "Bookerly", "Amazon Ember", serif;
+      font-size: 20px;
+      line-height: 1.4;
+      margin: 0;
+      padding: 16px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Encabezado */
+    .app-header {
+      margin-bottom: 20px;
+      border-bottom: 3px solid #000000;
+      padding-bottom: 12px;
+    }
+    .header-branding {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    .header-branding h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+    }
+    .header-branding .device-tag {
+      font-size: 14px;
+      font-weight: bold;
+      border: 1px solid #000000;
+      padding: 2px 6px;
+      text-transform: uppercase;
+    }
+
+    /* Barra de Pestañas (Tabs de Navegación) */
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+    .nav-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-height: 52px;
+      padding: 10px 14px;
+      text-decoration: none;
+      color: #000000;
+      font-size: 20px;
+      font-weight: bold;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      text-align: center;
+      cursor: pointer;
+    }
+    .nav-tab.active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .tab-badge {
+      display: inline-block;
+      font-size: 15px;
+      font-weight: bold;
+      padding: 2px 9px;
+      border: 1px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      border-radius: 12px;
+    }
+    .nav-tab.active .tab-badge {
+      background-color: #FFFFFF;
+      color: #000000;
+      border-color: #FFFFFF;
+    }
+
+    /* Botones genéricos */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      min-height: 48px;
+      font-size: 20px;
+      font-family: inherit;
+      padding: 10px 18px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      box-shadow: none;
+    }
+    .btn-block {
+      width: 100%;
+    }
+    .btn-primary {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .btn-sm {
+      min-height: 44px;
+      font-size: 17px;
+      padding: 6px 12px;
+    }
+
+    /* Formulario Colapsable (<details>) */
+    details.new-task-accordion {
+      border: 2px solid #000000;
+      margin-bottom: 24px;
+      background-color: #FFFFFF;
+    }
+    details.new-task-accordion > summary {
+      list-style: none;
+      padding: 14px 18px;
+      min-height: 52px;
+      font-size: 21px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background-color: #F0F0F0;
+      user-select: none;
+    }
+    details.new-task-accordion > summary::-webkit-details-marker {
+      display: none;
+    }
+    details[open].new-task-accordion > summary {
+      border-bottom: 2px solid #000000;
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .text-open { display: none; }
+    .text-closed { display: inline; }
+    details[open].new-task-accordion .text-open { display: inline; }
+    details[open].new-task-accordion .text-closed { display: none; }
+
+    .form-body {
+      padding: 16px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+    .form-control {
+      width: 100%;
+      font-size: 20px;
+      font-family: inherit;
+      padding: 12px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+    }
+    .form-grid-2 {
+      display: flex;
+      gap: 12px;
+    }
+    .form-grid-2 > div {
+      flex: 1;
+    }
+
+    /* Lista de Tareas */
+    .task-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .task-card {
+      border: 2px solid #000000;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background-color: #FFFFFF;
+    }
+    .task-card.priority-Alta {
+      border-left: 8px solid #000000;
+    }
+    .task-card.priority-Media {
+      border-left: 5px solid #555555;
+    }
+    .task-card.priority-Baja {
+      border-left: 2px solid #999999;
+    }
+
+    /* Checkbox táctil checklist */
+    .task-lead {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+    }
+    .btn-checkbox {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      min-width: 48px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .checkbox-square {
+      width: 34px;
+      height: 34px;
+      border: 3px solid #000000;
+      background-color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .checkbox-square.checked {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+
+    /* Contenido de la tarea */
+    .task-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .task-title-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .task-title {
+      font-size: 21px;
+      font-weight: bold;
+      word-break: break-word;
+    }
+    .task-completed .task-title {
+      text-decoration: line-through;
+      color: #444444;
+    }
+    .task-description {
+      font-size: 17px;
+      margin: 4px 0;
+      color: #222222;
+      word-break: break-word;
+    }
+    .task-completed .task-description {
+      text-decoration: line-through;
+      color: #666666;
+    }
+    .task-meta {
+      font-size: 15px;
+      color: #333333;
+      margin-top: 4px;
+    }
+    .meta-due-warning {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+
+    /* Etiquetas de prioridad de alto contraste */
+    .priority-badge {
+      display: inline-block;
+      font-size: 13px;
+      font-weight: 900;
+      padding: 2px 7px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-alta {
+      background-color: #000000;
+      color: #FFFFFF;
+      border: 1px solid #000000;
+    }
+    .badge-media {
+      background-color: #FFFFFF;
+      color: #000000;
+      border: 1.5px solid #000000;
+    }
+    .badge-baja {
+      background-color: #F0F0F0;
+      color: #444444;
+      border: 1px dashed #666666;
+    }
+
+    /* Acciones de fila */
+    .task-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .btn-delete {
+      min-width: 48px;
+      min-height: 48px;
+      font-size: 20px;
+      padding: 8px 12px;
+      background-color: #FFFFFF;
+      color: #000000;
+      border: 2px solid #000000;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Estado vacío */
+    .empty-state {
+      border: 2px dashed #666666;
+      padding: 32px 16px;
+      text-align: center;
+      margin: 20px 0;
+      background-color: #FAFAFA;
+    }
+    .empty-state h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 22px;
+    }
+    .empty-state p {
+      margin: 0;
+      font-size: 17px;
+      color: #444444;
+    }
+
+    /* Barra de herramientas / Subsección */
+    .section-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .section-toolbar h2 {
+      margin: 0;
+      font-size: 24px;
+      border: none;
+      padding: 0;
+    }
+
+    form.inline {
+      display: inline;
+      margin: 0;
+    }
+
+    @media (max-width: 480px) {
+      .form-grid-2 {
+        flex-direction: column;
+        gap: 0;
+      }
+      .task-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .task-actions {
+        justify-content: flex-end;
+        border-top: 1px dashed #CCCCCC;
+        padding-top: 8px;
+        margin-top: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-branding">
+      <h1>Kindle Tasks</h1>
+      <span class="device-tag">E-Ink LAN</span>
+    </div>
+    <nav class="nav-tabs">
+      <a href="/" class="nav-tab {% if active_tab == 'pending' %}active{% endif %}">
+        📋 Pendientes <span class="tab-badge">{{ pending_count }}</span>
+      </a>
+      <a href="/completed" class="nav-tab {% if active_tab == 'completed' %}active{% endif %}">
+        ✔️ Completadas <span class="tab-badge">{{ completed_count }}</span>
+      </a>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>

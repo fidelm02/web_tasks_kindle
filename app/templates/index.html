@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Pendientes - Kindle Tasks{% endblock %}
+
+{% block content %}
+
+  <!-- Sección de captura: agrupada y colapsada por defecto con <details> nativo -->
+  <details class="new-task-accordion">
+    <summary>
+      <span class="text-closed">➕ Nueva Tarea</span>
+      <span class="text-open">✖ Cerrar Formulario</span>
+    </summary>
+    <div class="form-body">
+      <form action="/tasks/create" method="POST">
+        <input type="hidden" name="redirect_to" value="/">
+        <div class="form-group">
+          <label for="task-title">Título de la tarea <span style="font-weight: normal;">(requerido)</span>:</label>
+          <input id="task-title" class="form-control" type="text" name="title" placeholder="Ej. Comprar repuesto o escribir reporte" required>
+        </div>
+
+        <div class="form-group">
+          <label for="task-desc">Descripción o notas <span style="font-weight: normal;">(opcional)</span>:</label>
+          <textarea id="task-desc" class="form-control" name="description" placeholder="Detalles, enlaces o subtareas..." rows="2"></textarea>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label for="task-priority">Prioridad:</label>
+            <select id="task-priority" class="form-control" name="priority">
+              <option value="Alta">Alta (Urgente / Crítica)</option>
+              <option value="Media" selected>Media (Normal)</option>
+              <option value="Baja">Baja (Secundaria)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="task-date">Fecha límite:</label>
+            <input id="task-date" class="form-control" type="date" name="target_date">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-block btn-primary" style="margin-top: 8px;">
+          Guardar Tarea
+        </button>
+      </form>
+    </div>
+  </details>
+
+  <!-- Listado de tareas pendientes -->
+  <section>
+    <div class="section-toolbar">
+      <h2>Tareas Pendientes</h2>
+      <span style="font-size: 16px; color: #444444;">{{ pending_tasks|length }} pendiente(s)</span>
+    </div>
+
+    <ul class="task-list">
+      {% for task in pending_tasks %}
+      <li class="task-card priority-{{ task.priority }}">
+        <div class="task-lead">
+          <!-- Botón Checkbox táctil para completar (min 48x48px) -->
+          <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
+            <input type="hidden" name="redirect_to" value="/">
+            <button type="submit" class="btn-checkbox" title="Marcar como completada" aria-label="Marcar como completada">
+              <span class="checkbox-square"></span>
+            </button>
+          </form>
+
+          <div class="task-info">
+            <div class="task-title-row">
+              <span class="task-title">{{ task.title }}</span>
+              {% if task.priority == 'Alta' %}
+                <span class="priority-badge badge-alta">ALTA</span>
+              {% elif task.priority == 'Media' %}
+                <span class="priority-badge badge-media">MEDIA</span>
+              {% elif task.priority == 'Baja' %}
+                <span class="priority-badge badge-baja">BAJA</span>
+              {% endif %}
+            </div>
+
+            {% if task.description %}
+              <div class="task-description">{{ task.description }}</div>
+            {% endif %}
+
+            {% if task.target_date %}
+              <div class="task-meta">
+                📅 Vence: <strong>{{ task.target_date | format_target_date }}</strong>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="task-actions">
+          <form class="inline" action="/tasks/{{ task.id }}/delete" method="POST">
+            <input type="hidden" name="redirect_to" value="/">
+            <button type="submit" class="btn-delete" title="Borrar tarea permanentemente" aria-label="Borrar tarea">✖</button>
+          </form>
+        </div>
+      </li>
+      {% else %}
+      <li class="empty-state">
+        <h3>🎉 ¡Todo al día!</h3>
+        <p>No tienes tareas pendientes. Presiona <strong>➕ Nueva Tarea</strong> arriba para añadir una.</p>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+{% endblock %}

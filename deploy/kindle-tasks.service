@@ -1,0 +1,14 @@
+[Unit]
+Description=Kindle Tasks - Servidor local de gestión de tareas
+After=network.target
+
+[Service]
+Type=simple
+User=fidel
+WorkingDirectory=/mnt/shared_nvme/Fidel/Documents/Dev/Nneex/Web_Kindle_Tasks
+ExecStart=/usr/bin/env uvicorn app.main:app --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

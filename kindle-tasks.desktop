@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kindle Tasks Server
+Comment=Levanta el servidor local de tareas para el Kindle Scribe en la LAN
+Exec=x-terminal-emulator -e python3 /mnt/shared_nvme/Fidel/Documents/Dev/Nneex/Web_Kindle_Tasks/run.py
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;Network;
+StartupNotify=true

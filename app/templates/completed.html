@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Completadas - Kindle Tasks{% endblock %}
+
+{% block content %}
+
+  <section>
+    <div class="section-toolbar">
+      <div>
+        <h2>Tareas Completadas</h2>
+        <span style="font-size: 16px; color: #444444;">{{ completed_tasks|length }} tarea(s) en historial</span>
+      </div>
+      {% if completed_tasks %}
+      <form action="/tasks/archive-completed" method="POST">
+        <button type="submit" class="btn btn-sm" title="Archivar tareas completadas del listado">
+          🗄️ Archivar Todas
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <ul class="task-list">
+      {% for task in completed_tasks %}
+      <li class="task-card task-completed">
+        <div class="task-lead">
+          <!-- Checkbox marcado: al presionar, reabre la tarea -->
+          <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
+            <input type="hidden" name="redirect_to" value="/completed">
+            <button type="submit" class="btn-checkbox" title="Reabrir y mover a pendientes" aria-label="Reabrir tarea">
+              <span class="checkbox-square checked">✔</span>
+            </button>
+          </form>
+
+          <div class="task-info">
+            <div class="task-title-row">
+              <span class="task-title">{{ task.title }}</span>
+            </div>
+
+            {% if task.description %}
+              <div class="task-description">{{ task.description }}</div>
+            {% endif %}
+
+            <div class="task-meta">
+              {% if task.completed_at %}
+                ✓ Completada: <strong>{{ task.completed_at | format_datetime }}</strong>
+              {% else %}
+                ✓ Completada
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="task-actions">
+          <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
+            <input type="hidden" name="redirect_to" value="/completed">
+            <button type="submit" class="btn btn-sm" title="Reabrir tarea">↩ Reabrir</button>
+          </form>
+          <form class="inline" action="/tasks/{{ task.id }}/delete" method="POST">
+            <input type="hidden" name="redirect_to" value="/completed">
+            <button type="submit" class="btn-delete" title="Borrar definitivamente" aria-label="Borrar tarea">✖</button>
+          </form>
+        </div>
+      </li>
+      {% else %}
+      <li class="empty-state">
+        <h3>Sin tareas completadas</h3>
+        <p>Aún no has completado tareas o las anteriores ya fueron archivadas.</p>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+{% endblock %}
