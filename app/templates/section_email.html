@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_heading %}{{ page_heading }}{% endblock %}
+
+{% block content %}
+<div class="task-form" style="max-width: 680px; margin: 0 auto; border: 3px solid #000000; padding: 22px; background-color: #FFFFFF;">
+
+  <div style="border-bottom: 2px solid #000000; padding-bottom: 14px; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h2 style="margin: 0; font-size: 22px; font-weight: 900;">
+        Enviar Reporte: {{ section.name }}
+      </h2>
+      <span class="device-tag" style="font-size: 13px;">PDF por Correo</span>
+    </div>
+    <p style="margin: 6px 0 0 0; font-size: 16px; color: #444444;">
+      Genera y envía reportes en formato PDF directamente a las direcciones de correo seleccionadas.
+    </p>
+  </div>
+
+  {% if err %}
+  <div class="alert alert-error" style="margin-bottom: 18px;">
+    {{ err }}
+  </div>
+  {% endif %}
+  {% if msg %}
+  <div class="alert alert-success" style="margin-bottom: 18px;">
+    {{ msg }}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/sections/{{ section.id }}/email/send">
+
+    <!-- Selección de Destinatarios -->
+    <div class="form-group" style="margin-bottom: 22px; border: 2px solid #000000; padding: 14px; background-color: #FAFAFA;">
+      <label style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 8px;">
+        1. Destinatarios del Reporte *
+      </label>
+      
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+        {% for email in default_recipients %}
+        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 16px;">
+          <input
+            type="checkbox"
+            name="selected_recipients"
+            value="{{ email }}"
+            {% if loop.first %}checked{% endif %}
+            style="width: 24px; height: 24px; accent-color: #000000; cursor: pointer;"
+          >
+          <strong>{{ email }}</strong>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div style="margin-top: 10px; border-top: 1px dashed #CCCCCC; padding-top: 10px;">
+        <label for="custom_recip" style="display: block; font-size: 15px; font-weight: bold; margin-bottom: 4px;">
+          Enviar a otro correo adicional:
+        </label>
+        <input
+          type="email"
+          id="custom_recip"
+          name="custom_recipient"
+          placeholder="ejemplo@dominio.com"
+          class="form-control"
+          style="width: 100%; min-height: 44px; font-size: 16px; padding: 6px 10px; border: 2px solid #000000; box-sizing: border-box;"
+        >
+      </div>
+    </div>
+
+    <!-- Archivos PDF a Adjuntar -->
+    <div class="form-group" style="margin-bottom: 22px; border: 2px solid #000000; padding: 14px; background-color: #FAFAFA;">
+      <label style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 10px;">
+        2. Reportes PDF a Generar y Adjuntar *
+      </label>
+
+      <label style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; cursor: pointer;">
+        <input
+          type="checkbox"
+          name="include_tasks"
+          value="true"
+          checked
+          style="width: 26px; height: 26px; accent-color: #000000; cursor: pointer; margin-top: 2px;"
+        >
+        <div>
+          <strong style="font-size: 17px; display: block;">PDF de Tareas del Proyecto ({{ tasks_count }} registradas)</strong>
+          <span style="font-size: 14px; color: #555555;">
+            Ordenadas primero por estado (Pendientes, Completadas, Archivadas) y alfabéticamente dentro de cada grupo, mostrando descripciones, prioridad y fechas.
+          </span>
+        </div>
+      </label>
+
+      <label style="display: flex; align-items: flex-start; gap: 12px; cursor: pointer;">
+        <input
+          type="checkbox"
+          name="include_docs"
+          value="true"
+          checked
+          style="width: 26px; height: 26px; accent-color: #000000; cursor: pointer; margin-top: 2px;"
+        >
+        <div>
+          <strong style="font-size: 17px; display: block;">PDF de Documentos y Lecturas ({{ docs_count }} archivos)</strong>
+          <span style="font-size: 14px; color: #555555;">
+            Catálogo completo organizado por categorías, con formatos, tamaños en KB y fechas de actualización.
+          </span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Asunto del Correo -->
+    <div class="form-group" style="margin-bottom: 18px;">
+      <label for="email_subject" style="display: block; font-weight: bold; font-size: 16px; margin-bottom: 6px;">
+        Asunto del Correo:
+      </label>
+      <input
+        type="text"
+        id="email_subject"
+        name="subject"
+        value="Reporte del Proyecto: {{ section.name }}"
+        class="form-control"
+        style="width: 100%; min-height: 44px; font-size: 16px; padding: 6px 10px; border: 2px solid #000000; box-sizing: border-box;"
+      >
+    </div>
+
+    <!-- Notas en el Cuerpo del Correo -->
+    <div class="form-group" style="margin-bottom: 24px;">
+      <label for="email_notes" style="display: block; font-weight: bold; font-size: 16px; margin-bottom: 6px;">
+        Mensaje o Notas en el Correo (Opcional):
+      </label>
+      <textarea
+        id="email_notes"
+        name="notes"
+        rows="3"
+        placeholder="Escribe comentarios o contexto adicional para el destinatario..."
+        class="form-control"
+        style="width: 100%; font-size: 16px; padding: 8px 10px; border: 2px solid #000000; box-sizing: border-box; font-family: inherit;"
+      ></textarea>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        style="flex: 2; min-height: 52px; font-size: 18px; font-weight: 900; cursor: pointer; border: 2px solid #000000; background-color: #000000; color: #FFFFFF;"
+      >
+        ✉ Enviar Reporte por Correo
+      </button>
+      <a
+        href="/"
+        class="btn btn-secondary"
+        style="flex: 1; min-height: 52px; font-size: 18px; font-weight: bold; text-decoration: none; display: flex; align-items: center; justify-content: center; border: 2px solid #000000; background-color: #FFFFFF; color: #000000;"
+      >
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+
+</div>
+{% endblock %}

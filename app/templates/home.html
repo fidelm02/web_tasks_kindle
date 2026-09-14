@@ -5,69 +5,52 @@
 
 {% block header %}
 <header class="app-header">
-  <div class="header-branding">
-    <div class="header-title-group">
+  <div class="header-branding" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div class="header-title-group" style="display: flex; align-items: center; gap: 12px;">
       <h1>Portal Casa</h1>
       <span class="device-tag">Kindle Scribe</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+      <a href="/sections/status/completed" class="header-mini-btn" title="Ver proyectos completados">
+        Completados{% if completed_count > 0 %} <span class="badge-count">{{ completed_count }}</span>{% endif %}
+      </a>
+      <a href="/sections/status/archived" class="header-mini-btn" title="Ver proyectos archivados">
+        Archivados{% if archived_count > 0 %} <span class="badge-count">{{ archived_count }}</span>{% endif %}
+      </a>
+      <a href="/sections/new" class="header-mini-btn" style="background-color: #000000; color: #FFFFFF; font-weight: 900;" title="Crear nueva sección o proyecto">
+        + Nueva Sección
+      </a>
     </div>
   </div>
 </header>
 {% endblock %}
 
 {% block content %}
+{% if msg %}
+<div class="alert alert-success" style="margin-bottom: 20px;">
+  {{ msg }}
+</div>
+{% endif %}
+{% if err %}
+<div class="alert alert-error" style="margin-bottom: 20px;">
+  {{ err }}
+</div>
+{% endif %}
+
 <div class="portal-grid">
-
-  <!-- SECCIÓN CASA -->
+  {% for sec in sections %}
+  
+  {% if sec.is_system %}
+  <!-- SECCIONES FIJAS DEL SISTEMA (CASA, LAU, FIDEL) -->
   <section class="home-section">
     <div class="home-section-header" style="display: flex; align-items: center;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
-        <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-10.5z"/>
-      </svg>
-      <span>Casa</span>
+      <span style="display: inline-flex; align-items: center; margin-right: 8px;">
+        {{ sec.icon_svg | safe }}
+      </span>
+      <span>{{ sec.name }}</span>
     </div>
     <div class="home-section-body">
-      <a href="/tasks" class="portal-link-btn">
-        <span style="display: flex; align-items: center;">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="9" x2="15" y2="9"></line>
-            <line x1="9" y1="13" x2="15" y2="13"></line>
-            <line x1="9" y1="17" x2="13" y2="17"></line>
-          </svg>
-          Pendientes del Hogar
-        </span>
-        <div class="portal-link-meta">
-          <span class="tab-badge">{{ pending_count }} activas</span>
-          <span style="font-size: 24px;">→</span>
-        </div>
-      </a>
-    </div>
-  </section>
-
-  <!-- SECCIÓN LAU -->
-  <section class="home-section">
-    <div class="home-section-header" style="display: flex; align-items: center;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
-        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-      </svg>
-      <span>Lau</span>
-    </div>
-    <div class="home-section-body">
-      <div class="portal-placeholder">
-        Espacio para notas y herramientas de Lau (Próximamente)
-      </div>
-    </div>
-  </section>
-
-  <!-- SECCIÓN FIDEL -->
-  <section class="home-section">
-    <div class="home-section-header" style="display: flex; align-items: center;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-      </svg>
-      <span>Fidel</span>
-    </div>
-    <div class="home-section-body">
+      {% if sec.has_clickup %}
       <a href="/clickup" class="portal-link-btn">
         <span style="display: flex; align-items: center;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
@@ -81,22 +64,201 @@
           <span style="font-size: 24px;">→</span>
         </div>
       </a>
+      {% endif %}
 
-      <a href="/lecturas" class="portal-link-btn">
+      {% if sec.has_tasks %}
+      <a href="{{ sec.tasks_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          {{ sec.tasks_label or ('Pendientes de ' ~ sec.name) }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.pending_count }} activas</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if sec.has_docs %}
+      <a href="{{ sec.docs_url }}" class="portal-link-btn">
         <span style="display: flex; align-items: center;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
           </svg>
-          Documentos y Lecturas
+          {{ sec.docs_label or 'Documentos y Lecturas' }}
         </span>
         <div class="portal-link-meta">
-          <span class="tab-badge">{{ docs_count }} archivos</span>
+          <span class="tab-badge">{{ sec.docs_count }} archivo(s)</span>
           <span style="font-size: 24px;">→</span>
         </div>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+  {% else %}
+
+  <!-- SECCIONES PERSONALIZADAS / PROYECTOS (COLAPSABLES, CON ESTADOS Y BOTÓN DE CORREO) -->
+  <details open class="home-section custom-section" style="border: 2px solid #000000; margin-bottom: 20px;">
+    <summary class="home-section-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 10px 14px; background-color: #F8F8F8;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="display: inline-flex; align-items: center;">
+          {{ sec.icon_svg | safe }}
+        </span>
+        <span style="font-weight: bold; font-size: 20px;">{{ sec.name }}</span>
+      </div>
+
+      <!-- BOTONES COMPLETAMENTE A LA DERECHA: EMAIL, COMPLETAR, ARCHIVAR -->
+      <div style="display: flex; align-items: center; gap: 6px;" onclick="event.stopPropagation();">
+        <a
+          href="/sections/{{ sec.id }}/email"
+          class="sec-action-icon-btn"
+          title="Generar y Enviar reporte por correo con PDF"
+          style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid #000000; background-color: #FFFFFF; color: #000000; text-decoration: none;"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </a>
+
+        <form method="POST" action="/sections/{{ sec.id }}/status" style="display: inline; margin: 0;">
+          <input type="hidden" name="new_status" value="completed">
+          <button
+            type="submit"
+            class="sec-action-text-btn"
+            title="Marcar proyecto como completado"
+            style="border: 2px solid #000000; background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 14px; padding: 0 10px; height: 42px; cursor: pointer;"
+          >
+            ✓ Completar
+          </button>
+        </form>
+
+        <form method="POST" action="/sections/{{ sec.id }}/status" style="display: inline; margin: 0;" onsubmit="return confirm('¿Archivar esta sección?\nSe ocultará de Inicio y podrás verla en Archivados.');">
+          <input type="hidden" name="new_status" value="archived">
+          <button
+            type="submit"
+            class="sec-action-text-btn"
+            title="Archivar sección"
+            style="border: 2px solid #000000; background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 14px; padding: 0 10px; height: 42px; cursor: pointer;"
+          >
+            📦 Archivar
+          </button>
+        </form>
+      </div>
+    </summary>
+
+    <div class="home-section-body" style="padding: 12px 14px;">
+      {% if sec.description %}
+      <p style="font-size: 15px; color: #555555; margin: 0 0 12px 0;">
+        {{ sec.description }}
+      </p>
+      {% endif %}
+
+      {% if sec.has_tasks %}
+      <a href="{{ sec.tasks_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          {{ sec.tasks_label or ('Pendientes de ' ~ sec.name) }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.pending_count }} activas</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if sec.has_docs %}
+      <a href="{{ sec.docs_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          {{ sec.docs_label or 'Documentos y Lecturas' }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.docs_count }} archivo(s)</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+
+  {% endfor %}
+
+  <!-- TARJETA ACCIÓN: NUEVA SECCIÓN / PROYECTO -->
+  <section class="home-section" style="border-style: dashed; background-color: #FAFAFA;">
+    <div class="home-section-header" style="display: flex; align-items: center; border-bottom: 2px dashed #999999;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span>Nuevo Espacio o Proyecto</span>
+    </div>
+    <div class="home-section-body">
+      <p style="font-size: 16px; margin: 0 0 12px 0; color: #444444;">
+        Crea un nuevo espacio personal o de proyecto con sus propias tareas y biblioteca de documentos aislada.
+      </p>
+      <a href="/sections/new" class="portal-link-btn" style="text-align: center; justify-content: center; font-weight: bold; background-color: #FFFFFF;">
+        <span style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 22px;">+</span> Definir Nueva Sección
+        </span>
       </a>
     </div>
   </section>
 
 </div>
+
+<style>
+  .header-mini-btn {
+    border: 2px solid #000000;
+    background-color: #FFFFFF;
+    color: #000000;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 10px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .header-mini-btn:active {
+    background-color: #000000;
+    color: #FFFFFF;
+  }
+  .badge-count {
+    background-color: #000000;
+    color: #FFFFFF;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 900;
+  }
+  .sec-action-icon-btn:active,
+  .sec-action-text-btn:active {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+  }
+  .sec-action-icon-btn:active svg {
+    stroke: #FFFFFF !important;
+  }
+  details.custom-section summary::-webkit-details-marker {
+    display: none;
+  }
+</style>
 {% endblock %}

@@ -5,11 +5,11 @@
 
 {% block nav %}
 <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
-  <a href="/lecturas" class="btn btn-sm">
+  <a href="{{ base_url | default('/lecturas') }}" class="btn btn-sm">
     ← Volver al catálogo
   </a>
   <div style="display: flex; gap: 8px;">
-    <a href="/lecturas/download/{{ doc.rel_path }}" class="btn btn-sm" title="Descargar archivo Markdown">
+    <a href="{{ base_url | default('/lecturas') }}/download/{{ doc.rel_path }}" class="btn btn-sm" title="Descargar archivo Markdown">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: -3px;">
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
         <polyline points="7 10 12 15 17 10"></polyline>
@@ -17,7 +17,7 @@
       </svg>
       Descargar .md
     </a>
-    <form class="inline" action="/lecturas/send/{{ doc.rel_path }}" method="POST">
+    <form class="inline" action="{{ base_url | default('/lecturas') }}/send/{{ doc.rel_path }}" method="POST">
       <button type="submit" class="btn btn-sm" title="Enviar este artículo a tu correo Kindle">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; vertical-align: -3px;">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
@@ -26,7 +26,7 @@
         Enviar al Kindle
       </button>
     </form>
-    <form class="inline" action="/lecturas/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
+    <form class="inline" action="{{ base_url | default('/lecturas') }}/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
       <button type="submit" class="btn btn-sm" title="Mover a la carpeta archive con fecha y hora" style="border-color: #777777; color: #444444;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
           <polyline points="21 8 21 21 3 21 3 8"></polyline>
@@ -46,7 +46,7 @@
 </article>
 
 <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000000; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-  <a href="/lecturas" class="btn">
+  <a href="{{ base_url | default('/lecturas') }}" class="btn">
     ← Volver al catálogo
   </a>
   <a href="/" class="btn btn-primary">

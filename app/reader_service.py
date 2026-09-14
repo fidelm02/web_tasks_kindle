@@ -18,21 +18,57 @@ import markdown
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 DOCS_DIR: Path = BASE_DIR / "docs"
-ARCHIVE_DIR: Path = DOCS_DIR / "archive"
+DOCS_LAU_DIR: Path = BASE_DIR / "docs_lau"
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".epub", ".txt"}
 
 
-def _ensure_docs_dir() -> Path:
-    """Ensure the base documents directory exists.
+def _clean_section(section: str) -> str:
+    """Normalize section identifier to safe alphanumeric string.
 
     Args:
-        None.
+        section: Raw section identifier string.
+
+    Returns:
+        str: Cleaned section identifier string.
+    """
+    cleaned = "".join(
+        c for c in (section or "").lower() if c.isalnum() or c in ("_", "-")
+    ).strip("_-")
+    return cleaned or "default"
+
+
+def _ensure_docs_dir(section: str = "default") -> Path:
+    """Ensure the base documents directory exists for given section.
+
+    Args:
+        section: Section name (e.g. 'fidel', 'lau', or custom slug).
 
     Returns:
         Path: Resolved directory path for documents.
     """
-    DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    return DOCS_DIR
+    clean = _clean_section(section)
+    if clean in ("default", "fidel", "docs"):
+        target = DOCS_DIR
+    elif clean in ("lau", "docs_lau"):
+        target = DOCS_LAU_DIR
+    else:
+        target = BASE_DIR / f"docs_{clean}"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _get_archive_dir(directory: Path) -> Path:
+    """Ensure and return archive directory inside documents directory.
+
+    Args:
+        directory: Section base documents directory.
+
+    Returns:
+        Path: Archive directory path.
+    """
+    archive_dir = directory / "archive"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    return archive_dir
 
 
 def _is_active_document(file_path: Path, base_dir: Path) -> bool:
@@ -60,20 +96,22 @@ def _is_active_document(file_path: Path, base_dir: Path) -> bool:
     return True
 
 
-def list_documents_by_category() -> dict[str, list[dict[str, Any]]]:
+def list_documents_by_category(
+    section: str = "default",
+) -> dict[str, list[dict[str, Any]]]:
     """Scan documents directory recursively grouped by subfolder.
 
     Discovers all supported document formats (.md, .pdf, .epub, .txt)
     excluding archive and hidden folders, organized by category.
 
     Args:
-        None.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         dict[str, list[dict[str, Any]]]: Mapping from folder category
             names to lists of document metadata dictionaries.
     """
-    directory: Path = _ensure_docs_dir()
+    directory: Path = _ensure_docs_dir(section)
     categories: dict[str, list[dict[str, Any]]] = {}
 
     all_files = sorted(
@@ -146,16 +184,16 @@ def list_documents_by_category() -> dict[str, list[dict[str, Any]]]:
     return categories
 
 
-def count_all_documents() -> int:
+def count_all_documents(section: str = "default") -> int:
     """Return total count of all supported documents across folders.
 
     Args:
-        None.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         int: Total number of documents.
     """
-    directory: Path = _ensure_docs_dir()
+    directory: Path = _ensure_docs_dir(section)
     return sum(
         1
         for f in directory.rglob("*")
@@ -163,19 +201,22 @@ def count_all_documents() -> int:
     )
 
 
-def resolve_document_path(rel_path: str) -> Path | None:
+def resolve_document_path(
+    rel_path: str, section: str = "default"
+) -> Path | None:
     """Safely resolve a document path within docs directory.
 
     Guards against path traversal attacks by ensuring the target
-    resides strictly within DOCS_DIR.
+    resides strictly within the section docs directory.
 
     Args:
         rel_path: Relative file path string.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         Path | None: Resolved existing path, or None if invalid.
     """
-    directory: Path = _ensure_docs_dir().resolve()
+    directory: Path = _ensure_docs_dir(section).resolve()
     target_path = (directory / rel_path).resolve()
 
     if not target_path.is_file():
@@ -188,17 +229,20 @@ def resolve_document_path(rel_path: str) -> Path | None:
         return None
 
 
-def get_markdown_html(rel_path: str) -> dict[str, Any] | None:
+def get_markdown_html(
+    rel_path: str, section: str = "default"
+) -> dict[str, Any] | None:
     """Render a specific Markdown document to HTML.
 
     Args:
         rel_path: Relative file path to the markdown file.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         dict[str, Any] | None: Dictionary with title, rendered HTML
             and metadata, or None if not found.
     """
-    file_path = resolve_document_path(rel_path)
+    file_path = resolve_document_path(rel_path, section=section)
     if not file_path or file_path.suffix.lower() != ".md":
         return None
 
@@ -235,16 +279,16 @@ def get_markdown_html(rel_path: str) -> dict[str, Any] | None:
         return None
 
 
-def get_existing_categories() -> list[str]:
+def get_existing_categories(section: str = "default") -> list[str]:
     """Return sorted list of existing non-archive subfolders.
 
     Args:
-        None.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         list[str]: Category folder names.
     """
-    directory: Path = _ensure_docs_dir()
+    directory: Path = _ensure_docs_dir(section)
     categories: set[str] = set()
     for f in directory.iterdir():
         if (
@@ -256,20 +300,23 @@ def get_existing_categories() -> list[str]:
     return sorted(categories)
 
 
-def archive_document(rel_path: str) -> tuple[bool, str]:
+def archive_document(
+    rel_path: str, section: str = "default"
+) -> tuple[bool, str]:
     """Move a document to the archive directory with timestamp.
 
     Args:
         rel_path: Relative path of the document inside docs.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         tuple[bool, str]: Success flag and feedback message.
     """
-    file_path = resolve_document_path(rel_path)
+    file_path = resolve_document_path(rel_path, section=section)
     if not file_path:
         return False, "Documento no encontrado o ruta no válida."
 
-    directory: Path = _ensure_docs_dir()
+    directory: Path = _ensure_docs_dir(section)
     try:
         rel = file_path.relative_to(directory)
     except ValueError:
@@ -281,8 +328,9 @@ def archive_document(rel_path: str) -> tuple[bool, str]:
     suffix = file_path.suffix
     new_filename = f"{stem}_{timestamp}{suffix}"
 
+    archive_dir = _get_archive_dir(directory)
     target_archive_dir = (
-        ARCHIVE_DIR if str(rel_parent) == "." else ARCHIVE_DIR / rel_parent
+        archive_dir if str(rel_parent) == "." else archive_dir / rel_parent
     )
     target_archive_dir.mkdir(parents=True, exist_ok=True)
     target_path = target_archive_dir / new_filename
@@ -298,6 +346,7 @@ def save_uploaded_document(
     filename: str,
     file_obj: Any,
     subfolder: str = "",
+    section: str = "default",
 ) -> tuple[bool, str]:
     """Save an uploaded document safely within docs directory.
 
@@ -305,11 +354,12 @@ def save_uploaded_document(
         filename: Original file name from client.
         file_obj: File-like object with read method.
         subfolder: Optional subfolder category name.
+        section: Section identifier (e.g. 'default', 'lau', 'fidel').
 
     Returns:
         tuple[bool, str]: Status flag and feedback message.
     """
-    directory: Path = _ensure_docs_dir()
+    directory: Path = _ensure_docs_dir(section)
     clean_name = Path(filename).name.strip()
     if not clean_name:
         return False, "El nombre de archivo no puede estar vacío."

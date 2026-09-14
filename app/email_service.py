@@ -121,3 +121,66 @@ def send_document_to_kindle(file_path: Path) -> tuple[bool, str]:
         )
     except Exception as exc:
         return False, f"Error al enviar correo: {exc}"
+
+
+def send_project_report(
+    recipients: list[str],
+    subject: str,
+    body: str,
+    pdf_attachments: list[tuple[str, bytes]],
+) -> tuple[bool, str]:
+    """Send project summary report with PDF attachments via Gmail.
+
+    Args:
+        recipients: List of recipient email strings.
+        subject: Email subject line.
+        body: Plain text email body.
+        pdf_attachments: List of tuples (filename, pdf_bytes).
+
+    Returns:
+        tuple[bool, str]: Success boolean and status message.
+    """
+    clean_recipients = [
+        r.strip() for r in recipients if r and "@" in r.strip()
+    ]
+    if not clean_recipients:
+        return False, "No se proporcionó ningún correo de destino válido."
+
+    sender = _get_cfg("GMAIL_SENDER_EMAIL", "fidelm02@gmail.com")
+    app_pwd = _get_cfg("GMAIL_APP_PASSWORD", "")
+
+    if not sender or not app_pwd:
+        return (
+            False,
+            "Credenciales de Gmail no configuradas en app/constants.py.",
+        )
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = ", ".join(clean_recipients)
+    msg.set_content(body)
+
+    for filename, pdf_data in pdf_attachments:
+        msg.add_attachment(
+            pdf_data,
+            maintype="application",
+            subtype="pdf",
+            filename=filename,
+        )
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=25) as s:
+            s.login(sender, app_pwd)
+            s.send_message(msg)
+
+        recipients_str = ", ".join(clean_recipients)
+        return True, f"Reporte enviado exitosamente a {recipients_str}."
+    except smtplib.SMTPAuthenticationError:
+        return (
+            False,
+            "Error de autenticación en Gmail. Verifica la contraseña "
+            "de aplicación en app/constants.py.",
+        )
+    except Exception as exc:
+        return False, f"Error al enviar reporte: {exc}"

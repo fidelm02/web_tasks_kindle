@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Documentos y Lecturas - Kindle Scribe{% endblock %}
-{% block page_heading %}Documentos y Lecturas{% endblock %}
+{% block title %}{{ page_title | default('Documentos y Lecturas - Kindle Scribe') }}{% endblock %}
+{% block page_heading %}{{ page_heading | default('Documentos y Lecturas') }}{% endblock %}
 
 {% block content %}
 
@@ -36,7 +36,7 @@
     <span class="text-open">✖ Cerrar Formulario</span>
   </summary>
   <div class="form-body">
-    <form action="/lecturas/upload" method="POST" enctype="multipart/form-data">
+    <form action="{{ base_url | default('/lecturas') }}/upload" method="POST" enctype="multipart/form-data">
       <div class="form-group">
         <label for="upload-file">Seleccionar archivo (.md, .pdf, .epub, .txt):</label>
         <input id="upload-file" class="form-control" type="file" name="file" accept=".md,.pdf,.epub,.txt" required style="padding: 10px; background-color: #FAFAFA;">
@@ -107,7 +107,7 @@
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; justify-content: flex-end;">
           <!-- Leer en el navegador (si es Markdown) -->
           {% if doc.is_markdown %}
-          <a href="/lecturas/view/{{ doc.rel_path }}" class="btn btn-sm btn-primary">
+          <a href="{{ base_url | default('/lecturas') }}/view/{{ doc.rel_path }}" class="btn btn-sm btn-primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
@@ -117,7 +117,7 @@
           {% endif %}
 
           <!-- Descargar directamente al Kindle -->
-          <a href="/lecturas/download/{{ doc.rel_path }}" class="btn btn-sm">
+          <a href="{{ base_url | default('/lecturas') }}/download/{{ doc.rel_path }}" class="btn btn-sm">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -127,7 +127,7 @@
           </a>
 
           <!-- Enviar por correo al Kindle -->
-          <form class="inline" action="/lecturas/send/{{ doc.rel_path }}" method="POST">
+          <form class="inline" action="{{ base_url | default('/lecturas') }}/send/{{ doc.rel_path }}" method="POST">
             <button type="submit" class="btn btn-sm" title="Enviar directamente a tu correo de Kindle">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
@@ -138,7 +138,7 @@
           </form>
 
           <!-- Archivar / Eliminar a carpeta archive con timestamp -->
-          <form class="inline" action="/lecturas/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
+          <form class="inline" action="{{ base_url | default('/lecturas') }}/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
             <button type="submit" class="btn btn-sm" title="Mover a la carpeta archive con fecha y hora" style="border-color: #777777; color: #444444;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
                 <polyline points="21 8 21 21 3 21 3 8"></polyline>

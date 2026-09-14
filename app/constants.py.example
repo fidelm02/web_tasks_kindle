@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import os
 
+# ============================================================================
+# Configuración de ClickUp API
+# ============================================================================
+
 CLICKUP_API_TOKEN: str = os.getenv("CLICKUP_API_TOKEN", "")
 CLICKUP_TEAM_ID: str = os.getenv("CLICKUP_TEAM_ID", "")
 CLICKUP_LIST_ID: str = os.getenv("CLICKUP_LIST_ID", "")
@@ -19,3 +23,105 @@ CLICKUP_USER_ID: str = os.getenv("CLICKUP_USER_ID", "")
 CLICKUP_API_BASE_URL: str = os.getenv(
     "CLICKUP_API_BASE_URL", "https://api.clickup.com/api/v2"
 )
+
+# ============================================================================
+# Configuración de Correo Electrónico (Gmail SMTP y OAuth2)
+# ============================================================================
+
+GMAIL_SENDER_EMAIL: str = os.getenv("GMAIL_SENDER_EMAIL", "")
+GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "")
+EMAIL_RECIPIENT: str = os.getenv("EMAIL_RECIPIENT", "")
+
+DEFAULT_EMAIL_RECIPIENTS: list[str] = [
+    "[EMAIL_ADDRESS]",
+    "[EMAIL_ADDRESS]",
+]
+
+GMAIL_OAUTH_CLIENT_ID: str = os.getenv("GMAIL_OAUTH_CLIENT_ID", "")
+GMAIL_OAUTH_CLIENT_SECRET: str = os.getenv("GMAIL_OAUTH_CLIENT_SECRET", "")
+GMAIL_OAUTH_REFRESH_TOKEN: str = os.getenv("GMAIL_OAUTH_REFRESH_TOKEN", "")
+GMAIL_OAUTH_ACCESS_TOKEN: str = os.getenv("GMAIL_OAUTH_ACCESS_TOKEN", "")
+
+# ============================================================================
+# Rutas Locales y Directorios de Pruebas
+# ============================================================================
+
+SANDBOX_FOLDER_PATH: str = os.getenv("SANDBOX_FOLDER_PATH", "")
+
+
+# ============================================================================
+# Funciones de Validación de Configuración
+# ============================================================================
+
+
+def get_missing_configuration() -> list[str]:
+    """Check for missing essential ClickUp configuration parameters.
+
+    Returns:
+        list[str]: Names of missing ClickUp configuration variables.
+    """
+    missing: list[str] = []
+    if not CLICKUP_API_TOKEN:
+        missing.append("CLICKUP_API_TOKEN")
+    if not CLICKUP_TEAM_ID:
+        missing.append("CLICKUP_TEAM_ID")
+    if not CLICKUP_LIST_ID:
+        missing.append("CLICKUP_LIST_ID")
+    if not CLICKUP_USER_ID:
+        missing.append("CLICKUP_USER_ID")
+    return missing
+
+
+def get_missing_email_configuration(
+    sender_email: str | None = None,
+    recipient: str | None = None,
+    app_password: str | None = None,
+    oauth_client_id: str | None = None,
+    oauth_client_secret: str | None = None,
+    oauth_refresh_token: str | None = None,
+    oauth_access_token: str | None = None,
+) -> list[str]:
+    """Check for missing email parameters across SMTP and OAuth.
+
+    Returns:
+        list[str]: Missing email configuration names.
+    """
+    sender = (
+        sender_email if sender_email is not None else GMAIL_SENDER_EMAIL
+    )
+    recip = recipient if recipient is not None else EMAIL_RECIPIENT
+    pwd = (
+        app_password if app_password is not None else GMAIL_APP_PASSWORD
+    )
+    cid = (
+        oauth_client_id
+        if oauth_client_id is not None
+        else GMAIL_OAUTH_CLIENT_ID
+    )
+    csec = (
+        oauth_client_secret
+        if oauth_client_secret is not None
+        else GMAIL_OAUTH_CLIENT_SECRET
+    )
+    rtoken = (
+        oauth_refresh_token
+        if oauth_refresh_token is not None
+        else GMAIL_OAUTH_REFRESH_TOKEN
+    )
+    atoken = (
+        oauth_access_token
+        if oauth_access_token is not None
+        else GMAIL_OAUTH_ACCESS_TOKEN
+    )
+
+    missing: list[str] = []
+    if not sender:
+        missing.append("GMAIL_SENDER_EMAIL")
+    if not recip:
+        missing.append("EMAIL_RECIPIENT")
+
+    has_pwd = bool(pwd)
+    has_oauth = bool(atoken or (cid and csec and rtoken))
+    if not (has_pwd or has_oauth):
+        missing.append("GMAIL_APP_PASSWORD or Gmail OAuth credentials")
+    return missing

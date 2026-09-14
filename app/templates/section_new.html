@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+{% block page_heading %}{{ page_heading }}{% endblock %}
+
+{% block content %}
+<div class="task-form" style="max-width: 650px; margin: 0 auto; border: 3px solid #000000; padding: 20px; background-color: #FFFFFF;">
+
+  <div style="border-bottom: 2px solid #000000; padding-bottom: 12px; margin-bottom: 20px;">
+    <h2 style="margin: 0 0 6px 0; font-size: 24px; font-weight: 900;">Crear Nuevo Espacio o Proyecto</h2>
+    <p style="margin: 0; font-size: 16px; color: #444444;">
+      Define una nueva sección en el portal. Por defecto incluirá su propio gestor de tareas pendientes y su biblioteca de documentos aislada.
+    </p>
+  </div>
+
+  {% if err %}
+  <div class="alert alert-error" style="margin-bottom: 18px;">
+    {{ err }}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/sections/create">
+
+    <!-- Nombre de la Sección -->
+    <div class="form-group" style="margin-bottom: 20px;">
+      <label for="sec_name" style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 6px;">
+        Nombre de la Sección o Proyecto *
+      </label>
+      <input
+        type="text"
+        id="sec_name"
+        name="name"
+        required
+        placeholder="Ej: Proyecto Alfa, Finanzas, Taller, Estudio..."
+        class="form-control"
+        style="width: 100%; min-height: 48px; font-size: 18px; padding: 8px 12px; border: 2px solid #000000; box-sizing: border-box;"
+      >
+    </div>
+
+    <!-- Selector de Icono Táctil Kindle-safe -->
+    <div class="form-group" style="margin-bottom: 22px;">
+      <label style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 8px;">
+        Elige un Icono Representativo
+      </label>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px;">
+        {% for ico in available_icons %}
+        <label style="cursor: pointer; margin: 0; position: relative;">
+          <input
+            type="radio"
+            name="icon"
+            value="{{ ico.key }}"
+            {% if loop.first or ico.key == 'folder' %}checked{% endif %}
+            style="position: absolute; opacity: 0; width: 0; height: 0;"
+            class="icon-radio-input"
+          >
+          <div class="icon-radio-card" style="border: 2px solid #000000; padding: 12px 6px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 75px; user-select: none;">
+            <div style="display: flex; align-items: center; justify-content: center;">
+              {{ ico.svg | safe }}
+            </div>
+            <span style="font-size: 14px; font-weight: bold;">{{ ico.label }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Opciones de Módulos (Checkboxes táctiles grandes) -->
+    <div class="form-group" style="margin-bottom: 22px; border: 2px solid #E0E0E0; padding: 14px; background-color: #FAFAFA;">
+      <span style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 10px;">
+        Módulos Incluidos por Defecto
+      </span>
+
+      <label style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; cursor: pointer;">
+        <input
+          type="checkbox"
+          name="has_tasks"
+          value="true"
+          checked
+          style="width: 26px; height: 26px; accent-color: #000000; cursor: pointer;"
+        >
+        <div>
+          <strong style="font-size: 17px; display: block;">Gestor de Tareas y Pendientes</strong>
+          <span style="font-size: 14px; color: #555555;">Base de datos aislada para registrar compromisos y estados.</span>
+        </div>
+      </label>
+
+      <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+        <input
+          type="checkbox"
+          name="has_docs"
+          value="true"
+          checked
+          style="width: 26px; height: 26px; accent-color: #000000; cursor: pointer;"
+        >
+        <div>
+          <strong style="font-size: 17px; display: block;">Biblioteca de Documentos y Lecturas</strong>
+          <span style="font-size: 14px; color: #555555;">Carpeta propia para subir, leer en Kindle y archivar archivos.</span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Descripción opcional -->
+    <div class="form-group" style="margin-bottom: 25px;">
+      <label for="sec_desc" style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 6px;">
+        Descripción o Notas (Opcional)
+      </label>
+      <textarea
+        id="sec_desc"
+        name="description"
+        rows="2"
+        placeholder="Breve propósito o notas de este espacio..."
+        class="form-control"
+        style="width: 100%; font-size: 16px; padding: 8px 12px; border: 2px solid #000000; box-sizing: border-box; font-family: inherit;"
+      ></textarea>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        style="flex: 2; min-height: 52px; font-size: 18px; font-weight: 900; cursor: pointer; border: 2px solid #000000; background-color: #000000; color: #FFFFFF;"
+      >
+        ✓ Guardar y Crear Sección
+      </button>
+      <a
+        href="/"
+        class="btn btn-secondary"
+        style="flex: 1; min-height: 52px; font-size: 18px; font-weight: bold; text-decoration: none; display: flex; align-items: center; justify-content: center; border: 2px solid #000000; background-color: #FFFFFF; color: #000000;"
+      >
+        Cancelar
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<style>
+  /* Selector de icono Kindle-safe */
+  .icon-radio-input:checked + .icon-radio-card {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+    border-color: #000000 !important;
+  }
+  .icon-radio-input:checked + .icon-radio-card svg {
+    stroke: #FFFFFF !important;
+  }
+  .icon-radio-input:checked + .icon-radio-card polygon,
+  .icon-radio-input:checked + .icon-radio-card circle {
+    stroke: #FFFFFF !important;
+  }
+  .icon-radio-input:focus + .icon-radio-card {
+    outline: 2px dashed #000000;
+  }
+</style>
+{% endblock %}

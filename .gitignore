@@ -28,6 +28,8 @@ data/*.json
 # Documentación y lecturas personales
 # ==========================================
 docs/
+docs_lau/
+docs_*/
 
 # ==========================================
 # Variables de entorno y secretos
