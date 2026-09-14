@@ -107,10 +107,21 @@ def _safe_redirect(target: str | None, default: str = "/tasks") -> str:
     Returns:
         str: Safe redirect URL string.
     """
-    allowed = {"/", "/tasks", "/tasks/completed", "/completed", "/lecturas"}
-    if target and target in allowed:
+    if not target:
+        return default
+    parsed = urllib.parse.urlparse(target)
+    allowed_paths = {
+        "/",
+        "/tasks",
+        "/tasks/completed",
+        "/completed",
+        "/clickup",
+        "/lecturas",
+    }
+    if parsed.path in allowed_paths and not parsed.netloc:
         return target
     return default
+
 
 
 @app.get("/")
@@ -136,11 +147,12 @@ def home_portal(request: Request):
 
 
 @app.get("/tasks")
-def tasks_dashboard(request: Request):
+def tasks_dashboard(request: Request, msg: str | None = None):
     """Render the active pending tasks dashboard.
 
     Args:
         request: FastAPI HTTP request instance.
+        msg: Optional feedback message query parameter.
 
     Returns:
         TemplateResponse: Rendered tasks template.
@@ -155,8 +167,10 @@ def tasks_dashboard(request: Request):
             "pending_count": len(pending),
             "completed_count": len(completed),
             "active_tab": "pending",
+            "msg": msg,
         },
     )
+
 
 
 @app.get("/tasks/completed")
@@ -208,6 +222,44 @@ def create_task(
     return RedirectResponse(
         _safe_redirect(redirect_to, "/tasks"), status_code=303
     )
+
+
+@app.post("/tasks/{task_id}/edit")
+def edit_task(
+    task_id: str,
+    title: str = Form(...),
+    description: str = Form(""),
+    priority: str = Form("Media"),
+    target_date: str = Form(""),
+    redirect_to: str = Form("/tasks"),
+):
+    """Update an existing task in local storage.
+
+    Args:
+        task_id: Unique UUID string of the task.
+        title: Updated task title string.
+        description: Optional updated notes.
+        priority: Alta, Media, or Baja.
+        target_date: Optional updated due date.
+        redirect_to: Return URL after saving.
+
+    Returns:
+        RedirectResponse: HTTP 303 redirect with feedback.
+    """
+    storage.update_task(
+        task_id,
+        title,
+        description,
+        priority,
+        target_date or None,
+    )
+    sep = "&" if "?" in redirect_to else "?"
+    encoded_msg = urllib.parse.quote("Tarea actualizada correctamente.")
+    dest_url = f"{redirect_to}{sep}msg={encoded_msg}"
+    return RedirectResponse(
+        _safe_redirect(dest_url, "/tasks"), status_code=303
+    )
+
 
 
 @app.post("/tasks/{task_id}/toggle")
@@ -276,12 +328,19 @@ def archive_completed_tasks():
 
 
 @app.get("/clickup")
-def clickup_dashboard(request: Request, view: str = "sprint"):
+def clickup_dashboard(
+    request: Request,
+    view: str = "sprint",
+    msg: str | None = None,
+    err: str | None = None,
+):
     """Render ClickUp sprint or backlog tasks for user Fidel.
 
     Args:
         request: FastAPI HTTP request instance.
         view: Active view mode ('sprint' or 'backlog').
+        msg: Optional success feedback string.
+        err: Optional error feedback string.
 
     Returns:
         TemplateResponse: Rendered ClickUp template.
@@ -292,16 +351,54 @@ def clickup_dashboard(request: Request, view: str = "sprint"):
         view = "sprint"
         list_name, tasks, error = clickup_service.get_sprint_tasks()
 
+    raw_req_tasks = [t for t in tasks if t.get("is_req")]
+    raw_dev_tasks = [t for t in tasks if not t.get("is_req")]
+
+    req_tasks = clickup_service.sort_tasks_by_priority(raw_req_tasks)
+    status_groups = clickup_service.group_tasks_by_status(raw_dev_tasks)
+    available_statuses = clickup_service.get_available_statuses()
+    current_url = f"/clickup?view={view}"
+
     return templates.TemplateResponse(
         request,
         "clickup.html",
         {
             "list_name": list_name,
             "tasks": tasks,
-            "error": error,
+            "req_tasks": req_tasks,
+            "status_groups": status_groups,
+            "available_statuses": available_statuses,
+            "error": err or error,
+            "msg": msg,
             "active_view": view,
+            "current_url": current_url,
         },
     )
+
+
+
+@app.post("/clickup/tasks/{task_id}/status")
+def update_clickup_status(
+    task_id: str,
+    status: str = Form(...),
+    redirect_to: str = Form("/clickup"),
+):
+    """Update status of a ClickUp task and redirect back with feedback.
+
+    Args:
+        task_id: Unique ClickUp task identifier.
+        status: Target status name.
+        redirect_to: Return URL.
+
+    Returns:
+        RedirectResponse: Redirect with message or error query param.
+    """
+    success, message = clickup_service.update_task_status(task_id, status)
+    sep = "&" if "?" in redirect_to else "?"
+    param = "msg" if success else "err"
+    encoded_msg = urllib.parse.quote(message)
+    dest_url = f"{redirect_to}{sep}{param}={encoded_msg}"
+    return RedirectResponse(dest_url, status_code=303)
 
 
 @app.get("/lecturas")

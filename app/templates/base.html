@@ -41,8 +41,8 @@
     }
     .header-title-group {
       display: flex;
-      align-items: baseline;
-      gap: 10px;
+      align-items: center;
+      gap: 20px;
       flex-wrap: wrap;
     }
     .header-branding h1 {
@@ -52,11 +52,13 @@
       letter-spacing: -0.5px;
     }
     .header-branding .device-tag {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: bold;
-      border: 1px solid #000000;
-      padding: 2px 6px;
+      border: 1.5px solid #000000;
+      padding: 3px 8px;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
     }
 
     /* Botón Inicio de Encabezado */
@@ -239,6 +241,77 @@
     details[open].new-task-accordion .text-open { display: inline; }
     details[open].new-task-accordion .text-closed { display: none; }
 
+    /* Grupos Colapsables de Tareas ClickUp */
+    details.group-collapsible {
+      border: 2px solid #000000;
+      margin-bottom: 22px;
+      background-color: #FFFFFF;
+    }
+    details.group-collapsible > summary {
+      list-style: none;
+      padding: 12px 16px;
+      min-height: 52px;
+      font-size: 19px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      user-select: none;
+      background-color: #EEEEEE;
+      color: #000000;
+      border-bottom: 2px solid transparent;
+    }
+    details.group-collapsible > summary::-webkit-details-marker {
+      display: none;
+    }
+    details[open].group-collapsible > summary {
+      border-bottom: 2px solid #000000;
+      background-color: #E2E2E2;
+    }
+    .indicator-open { display: none; }
+    .indicator-closed { display: inline; }
+    details[open].group-collapsible .indicator-open { display: inline; }
+    details[open].group-collapsible .indicator-closed { display: none; }
+
+    /* Grupo REQ (Soporte) */
+    details.group-req {
+      border: 2px solid #000000;
+      margin-top: 26px;
+      margin-bottom: 24px;
+    }
+    details.group-req > summary {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    details[open].group-req > summary {
+      background-color: #000000;
+      color: #FFFFFF;
+      border-bottom: 2px solid #444444;
+    }
+    details.group-req .tab-badge {
+      background-color: #FFFFFF;
+      color: #000000;
+      border-color: #FFFFFF;
+    }
+
+    /* Selector de Estado Interactivo (Kindle-safe, sin bugs de select) */
+    details.status-changer {
+      background-color: #FFFFFF;
+    }
+    details.status-changer > summary {
+      list-style: none;
+      user-select: none;
+    }
+    details.status-changer > summary::-webkit-details-marker {
+      display: none;
+    }
+    .status-changer-open { display: none; }
+    .status-changer-closed { display: inline; }
+    details[open].status-changer .status-changer-open { display: inline; }
+    details[open].status-changer .status-changer-closed { display: none; }
+
     .form-body {
       padding: 16px;
     }
@@ -340,8 +413,11 @@
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 16px;
+      margin-bottom: 6px;
+    }
+    .task-title-row .priority-badge {
+      margin-left: 6px;
     }
     .task-title {
       font-size: 21px;
@@ -560,6 +636,85 @@
       margin: 0;
     }
 
+    /* Modal de Edición de Tareas (Kindle-safe: CSS :target + JS) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.65);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .modal-overlay:target {
+      display: flex !important;
+    }
+    .modal-dialog {
+      background-color: #FFFFFF;
+      color: #000000;
+      border: 3px solid #000000;
+      width: 100%;
+      max-width: 620px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .modal-header {
+      padding: 12px 18px;
+      background-color: #F0F0F0;
+      border-bottom: 2px solid #000000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      font-size: 20px;
+      font-weight: bold;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+    .btn-modal-close:active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .modal-body {
+      padding: 18px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px dashed #CCCCCC;
+    }
+    .task-title-link {
+      color: #000000;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .task-title-link:active, .task-title-link:hover {
+      text-decoration: underline;
+    }
+
     @media (max-width: 480px) {
       .form-grid-2 {
         flex-direction: column;
@@ -599,5 +754,26 @@
     {% block content %}{% endblock %}
   </main>
 
+  <script>
+    function openTaskModal(id) {
+      var modal = document.getElementById(id);
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    }
+    function closeTaskModal(id) {
+      var modal = document.getElementById(id);
+      if (modal) {
+        modal.style.display = 'none';
+      }
+      if (window.location.hash) {
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, null, window.location.pathname);
+        } else {
+          window.location.hash = '';
+        }
+      }
+    }
+  </script>
 </body>
 </html>

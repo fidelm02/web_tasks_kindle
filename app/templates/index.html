@@ -6,15 +6,28 @@
 {% block nav %}
 <nav class="nav-tabs">
   <a href="/tasks" class="nav-tab active">
-    📋 Pendientes <span class="tab-badge">{{ pending_count }}</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px; margin-right: 4px;" aria-hidden="true">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+    </svg>
+    Pendientes <span class="tab-badge">{{ pending_count }}</span>
   </a>
   <a href="/tasks/completed" class="nav-tab">
-    ✔️ Completadas <span class="tab-badge">{{ completed_count }}</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -3px; margin-right: 4px;" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+    Completadas <span class="tab-badge">{{ completed_count }}</span>
   </a>
 </nav>
 {% endblock %}
 
 {% block content %}
+
+  {% if msg %}
+  <div class="notice-box" style="border-left: 8px solid #000000; background-color: #F4F4F4; margin-bottom: 20px;">
+    <strong>✓ Notificación:</strong> {{ msg }}
+  </div>
+  {% endif %}
 
   <!-- Sección de captura: agrupada y colapsada por defecto con <details> nativo -->
   <details class="new-task-accordion">
@@ -78,13 +91,24 @@
 
           <div class="task-info">
             <div class="task-title-row">
-              <span class="task-title">{{ task.title }}</span>
+              <!-- Nombre de la tarea como disparador de modal de edición -->
+              <a href="#edit-task-{{ task.id }}" 
+                 class="task-title-link" 
+                 onclick="openTaskModal('edit-task-{{ task.id }}'); return false;"
+                 title="Toca para ver o editar esta tarea">
+                <span class="task-title">{{ task.title }}</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-left: 4px; opacity: 0.7;" aria-hidden="true">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+              </a>
+
               {% if task.priority == 'Alta' %}
-                <span class="priority-badge badge-alta">ALTA</span>
+                <span class="priority-badge badge-alta" style="margin-left: 6px;">ALTA</span>
               {% elif task.priority == 'Media' %}
-                <span class="priority-badge badge-media">MEDIA</span>
+                <span class="priority-badge badge-media" style="margin-left: 6px;">MEDIA</span>
               {% elif task.priority == 'Baja' %}
-                <span class="priority-badge badge-baja">BAJA</span>
+                <span class="priority-badge badge-baja" style="margin-left: 6px;">BAJA</span>
               {% endif %}
             </div>
 
@@ -93,8 +117,14 @@
             {% endif %}
 
             {% if task.target_date %}
-              <div class="task-meta">
-                📅 Vence: <strong>{{ task.target_date | format_target_date }}</strong>
+              <div class="task-meta" style="display: flex; align-items: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Vence: <strong>{{ task.target_date | format_target_date }}</strong></span>
               </div>
             {% endif %}
           </div>
@@ -106,10 +136,65 @@
             <button type="submit" class="btn-delete" title="Borrar tarea permanentemente" aria-label="Borrar tarea">✖</button>
           </form>
         </div>
+
+        <!-- Modal emergente sobre la ventana actual para ver y editar tarea -->
+        <div id="edit-task-{{ task.id }}" class="modal-overlay" onclick="if(event.target === this) closeTaskModal('edit-task-{{ task.id }}');">
+          <div class="modal-dialog">
+            <div class="modal-header">
+              <h3 style="margin: 0; font-size: 22px; display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                Detalle y Edición de Tarea
+              </h3>
+              <a href="#" class="btn-modal-close" onclick="closeTaskModal('edit-task-{{ task.id }}'); return false;" aria-label="Cerrar ventana">✖</a>
+            </div>
+
+            <form action="/tasks/{{ task.id }}/edit" method="POST" class="modal-body">
+              <input type="hidden" name="redirect_to" value="/tasks">
+
+              <div class="form-group">
+                <label for="edit-title-{{ task.id }}">Título de la tarea:</label>
+                <input id="edit-title-{{ task.id }}" class="form-control" type="text" name="title" value="{{ task.title }}" required>
+              </div>
+
+              <div class="form-group">
+                <label for="edit-desc-{{ task.id }}">Descripción o notas:</label>
+                <textarea id="edit-desc-{{ task.id }}" class="form-control" name="description" rows="3">{{ task.description or '' }}</textarea>
+              </div>
+
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <label for="edit-priority-{{ task.id }}">Prioridad:</label>
+                  <select id="edit-priority-{{ task.id }}" class="form-control" name="priority">
+                    <option value="Alta" {% if task.priority == 'Alta' %}selected{% endif %}>Alta (Urgente)</option>
+                    <option value="Media" {% if task.priority == 'Media' %}selected{% endif %}>Media (Normal)</option>
+                    <option value="Baja" {% if task.priority == 'Baja' %}selected{% endif %}>Baja (Secundaria)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="edit-date-{{ task.id }}">Fecha límite:</label>
+                  <input id="edit-date-{{ task.id }}" class="form-control" type="date" name="target_date" value="{{ task.target_date or '' }}">
+                </div>
+              </div>
+
+              <div class="modal-actions">
+                <button type="submit" class="btn btn-primary" style="flex: 1; min-height: 48px; font-size: 18px;">
+                  ✓ Guardar Cambios
+                </button>
+                <a href="#" class="btn" onclick="closeTaskModal('edit-task-{{ task.id }}'); return false;" style="flex: 1; min-height: 48px; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; border: 2px solid #000000; background-color: #FFFFFF; color: #000000;">
+                  Cancelar
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
       </li>
       {% else %}
       <li class="empty-state">
-        <h3>🎉 ¡Todo al día!</h3>
+        <h3>✓ ¡Todo al día!</h3>
         <p>No tienes tareas pendientes por ahora.</p>
       </li>
       {% endfor %}
@@ -117,3 +202,4 @@
   </section>
 
 {% endblock %}
+
