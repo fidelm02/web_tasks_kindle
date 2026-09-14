@@ -30,6 +30,10 @@ data/*.json
 .env
 .env.*
 !.env.example
+constants.py
+app/constants.py
+*.secret
+secrets.py
 
 # ==========================================
 # Logs y temporales
