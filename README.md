@@ -40,18 +40,30 @@ Kindle Tasks solves this by offering:
 
 ### Running the Server
 
-Clone the repository and run the single launcher script:
-S
+Clone the repository:
+
 ```bash
 git clone git@github.com:fidelm02/web_tasks_kindle.git
 cd web_tasks_kindle
-python3 run.py
 ```
 
-`run.py` will automatically:
-1. Initialize a Python virtual environment (`.venv`) if one does not exist.
-2. Install all required dependencies from `requirements.txt`.
-3. Detect your local IP address and launch the Uvicorn server on port `8080`.
+Run the controller script:
+
+```bash
+# Start in background (daemon mode, frees the terminal):
+python3 kindle_web.py start
+
+# Check status:
+python3 kindle_web.py status
+
+# Stop the server:
+python3 kindle_web.py stop
+
+# Run in foreground (shows live logs and tracebacks for debugging):
+python3 kindle_web.py foreground
+```
+
+> **Note:** `python3 run.py` remains available as a wrapper for backwards compatibility.
 
 ### Accessing from your Kindle
 
