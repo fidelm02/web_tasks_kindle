@@ -4,10 +4,20 @@
 {% block page_heading %}Lectura{% endblock %}
 
 {% block nav %}
-<div style="display: flex; gap: 10px; margin-top: 8px;">
-  <a href="/lecturas" class="btn btn-sm" style="font-size: 17px;">
-    ← Volver a Lecturas
+<div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+  <a href="/lecturas" class="btn btn-sm">
+    ← Volver al catálogo
   </a>
+  <div style="display: flex; gap: 8px;">
+    <a href="/lecturas/download/{{ doc.rel_path }}" class="btn btn-sm" title="Descargar archivo Markdown">
+      ⬇ Descargar .md
+    </a>
+    <form class="inline" action="/lecturas/send/{{ doc.rel_path }}" method="POST">
+      <button type="submit" class="btn btn-sm" title="Enviar este artículo a tu correo Kindle">
+        ✉ Enviar al Kindle
+      </button>
+    </form>
+  </div>
 </div>
 {% endblock %}
 

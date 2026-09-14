@@ -19,15 +19,26 @@
 
   <!-- SECCIÓN CASA -->
   <section class="home-section">
-    <div class="home-section-header">
-      🏠 Casa
+    <div class="home-section-header" style="display: flex; align-items: center;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+        <path d="M3 10.5L12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-10.5z"/>
+      </svg>
+      <span>Casa</span>
     </div>
     <div class="home-section-body">
       <a href="/tasks" class="portal-link-btn">
-        <span>📋 Pendientes del Hogar</span>
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          Pendientes del Hogar
+        </span>
         <div class="portal-link-meta">
           <span class="tab-badge">{{ pending_count }} activas</span>
-          <span>→</span>
+          <span style="font-size: 24px;">→</span>
         </div>
       </a>
     </div>
@@ -35,8 +46,11 @@
 
   <!-- SECCIÓN LAU -->
   <section class="home-section">
-    <div class="home-section-header">
-      🌸 Lau
+    <div class="home-section-header" style="display: flex; align-items: center;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+      <span>Lau</span>
     </div>
     <div class="home-section-body">
       <div class="portal-placeholder">
@@ -47,23 +61,38 @@
 
   <!-- SECCIÓN FIDEL -->
   <section class="home-section">
-    <div class="home-section-header">
-      ⚡ Fidel
+    <div class="home-section-header" style="display: flex; align-items: center;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      <span>Fidel</span>
     </div>
     <div class="home-section-body">
       <a href="/clickup" class="portal-link-btn">
-        <span>💼 ClickUp (Trabajo)</span>
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"></path>
+          </svg>
+          ClickUp (Trabajo)
+        </span>
         <div class="portal-link-meta">
           <span class="tab-badge">Sprint / Backlog</span>
-          <span>→</span>
+          <span style="font-size: 24px;">→</span>
         </div>
       </a>
 
       <a href="/lecturas" class="portal-link-btn">
-        <span>📖 Lecturas Markdown</span>
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          Documentos y Lecturas
+        </span>
         <div class="portal-link-meta">
-          <span class="tab-badge">{{ docs_count }} artículos</span>
-          <span>→</span>
+          <span class="tab-badge">{{ docs_count }} archivos</span>
+          <span style="font-size: 24px;">→</span>
         </div>
       </a>
     </div>

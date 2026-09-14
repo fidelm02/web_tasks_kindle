@@ -1,39 +1,85 @@
 {% extends "base.html" %}
 
-{% block title %}Lecturas Markdown - Kindle Scribe{% endblock %}
-{% block page_heading %}Lecturas - Fidel{% endblock %}
+{% block title %}Documentos y Lecturas - Kindle Scribe{% endblock %}
+{% block page_heading %}Documentos y Lecturas{% endblock %}
 
 {% block content %}
+
+{% if msg %}
+<div class="notice-box" style="border-left: 8px solid #000000; background-color: #F4F4F4;">
+  <strong>✓ Notificación:</strong> {{ msg }}
+</div>
+{% endif %}
+
+{% if err %}
+<div class="notice-box" style="border-left: 8px solid #000000; background-color: #F8F8F8;">
+  <strong>⚠️ Aviso:</strong> {{ err }}
+</div>
+{% endif %}
+
 <div class="section-toolbar">
   <h2>Biblioteca de Documentos</h2>
-  <span class="tab-badge">{{ docs | length }} disponibles</span>
+  <span class="tab-badge">{{ total_docs }} archivos</span>
 </div>
 
-{% if docs %}
-<div style="display: flex; flex-direction: column; gap: 14px;">
-  {% for doc in docs %}
-  <div class="home-section" style="margin-bottom: 0;">
-    <div class="home-section-header" style="display: flex; justify-content: space-between; align-items: baseline;">
-      <span>📖 {{ doc.title }}</span>
-      <span style="font-size: 14px; font-weight: normal; color: #444444;">{{ doc.date }} · {{ doc.size_kb }} KB</span>
+{% if categories %}
+  {% for category_name, docs in categories.items() %}
+  <section class="home-section" style="margin-bottom: 24px;">
+    <div class="home-section-header" style="display: flex; align-items: center; justify-content: space-between;">
+      <span>📁 {{ category_name }}</span>
+      <span style="font-size: 15px; font-weight: normal; color: #444444;">{{ docs | length }} archivo(s)</span>
     </div>
-    <div class="home-section-body">
-      <p style="margin: 0; font-size: 18px; color: #333333; line-height: 1.4;">
-        {{ doc.description }}
-      </p>
-      <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-        <a href="/lecturas/{{ doc.slug }}" class="btn btn-primary btn-sm" style="font-size: 18px; padding: 8px 16px;">
-          Leer Documento →
-        </a>
+
+    <div class="home-section-body" style="gap: 14px;">
+      {% for doc in docs %}
+      <div style="border: 1.5px solid #000000; padding: 12px 16px; background-color: #FFFFFF;">
+        <!-- Encabezado del documento -->
+        <div style="display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="priority-badge {% if doc.is_pdf %}badge-alta{% elif doc.is_epub %}badge-media{% else %}badge-baja{% endif %}" style="font-size: 14px;">
+              {{ doc.ext }}
+            </span>
+            <strong style="font-size: 21px;">{{ doc.title }}</strong>
+          </div>
+          <span style="font-size: 14px; color: #444444;">{{ doc.date }} · {{ doc.size_kb }} KB</span>
+        </div>
+
+        {% if doc.description %}
+        <p style="margin: 8px 0; font-size: 17px; color: #333333; line-height: 1.4;">
+          {{ doc.description }}
+        </p>
+        {% endif %}
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; justify-content: flex-end;">
+          <!-- Leer en el navegador (si es Markdown) -->
+          {% if doc.is_markdown %}
+          <a href="/lecturas/view/{{ doc.rel_path }}" class="btn btn-sm btn-primary">
+            📖 Leer en pantalla
+          </a>
+          {% endif %}
+
+          <!-- Descargar directamente al Kindle -->
+          <a href="/lecturas/download/{{ doc.rel_path }}" class="btn btn-sm">
+            ⬇ Descargar
+          </a>
+
+          <!-- Enviar por correo al Kindle -->
+          <form class="inline" action="/lecturas/send/{{ doc.rel_path }}" method="POST">
+            <button type="submit" class="btn btn-sm" title="Enviar directamente a tu correo de Kindle">
+              ✉ Enviar al Kindle
+            </button>
+          </form>
+        </div>
       </div>
+      {% endfor %}
     </div>
-  </div>
+  </section>
   {% endfor %}
-</div>
 {% else %}
 <div class="empty-state">
-  <h3>No hay lecturas disponibles</h3>
-  <p>Coloca archivos <code>.md</code> en la carpeta <code>docs/</code> para verlos aquí.</p>
+  <h3>Biblioteca vacía</h3>
+  <p>Coloca archivos <code>.md</code>, <code>.pdf</code> o <code>.epub</code> en la carpeta <code>docs/</code> o dentro de subcarpetas para verlos aquí organizados.</p>
 </div>
 {% endif %}
 

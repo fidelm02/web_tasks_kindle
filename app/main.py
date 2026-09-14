@@ -2,7 +2,8 @@
 
 Objective:
     Provide SSR endpoints for the home portal, local task management,
-    ClickUp sprint/backlog viewer, and Markdown document reader.
+    ClickUp sprint/backlog viewer, and multi-format document reader
+    with Kindle delivery and direct download support.
 
 Author:
     Fidel Moreno Miranda <fidelm02@gmail.com>
@@ -12,12 +13,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+import urllib.parse
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import clickup_service, reader_service, storage
+from app import clickup_service, email_service, reader_service, storage
 
 app = FastAPI(title="Kindle Tasks & Home Portal")
 templates = Jinja2Templates(directory="app/templates")
@@ -105,7 +107,7 @@ def _safe_redirect(target: str | None, default: str = "/tasks") -> str:
     Returns:
         str: Safe redirect URL string.
     """
-    allowed = {"/", "/tasks", "/tasks/completed", "/completed"}
+    allowed = {"/", "/tasks", "/tasks/completed", "/completed", "/lecturas"}
     if target and target in allowed:
         return target
     return default
@@ -122,13 +124,13 @@ def home_portal(request: Request):
         TemplateResponse: Rendered home portal template.
     """
     pending = storage.get_pending_tasks()
-    docs = reader_service.list_documents()
+    docs_count = reader_service.count_all_documents()
     return templates.TemplateResponse(
         request,
         "home.html",
         {
             "pending_count": len(pending),
-            "docs_count": len(docs),
+            "docs_count": docs_count,
         },
     )
 
@@ -303,38 +305,48 @@ def clickup_dashboard(request: Request, view: str = "sprint"):
 
 
 @app.get("/lecturas")
-def reader_catalog(request: Request):
-    """Render catalog of available Markdown documents.
+def reader_catalog(
+    request: Request, msg: str | None = None, err: str | None = None
+):
+    """Render catalog of documents organized by folder categories.
 
     Args:
         request: FastAPI HTTP request instance.
+        msg: Optional success flash message query parameter.
+        err: Optional error flash message query parameter.
 
     Returns:
         TemplateResponse: Rendered reader list template.
     """
-    docs = reader_service.list_documents()
+    categories = reader_service.list_documents_by_category()
+    total_docs = reader_service.count_all_documents()
     return templates.TemplateResponse(
         request,
         "reader_list.html",
-        {"docs": docs},
+        {
+            "categories": categories,
+            "total_docs": total_docs,
+            "msg": msg,
+            "err": err,
+        },
     )
 
 
-@app.get("/lecturas/{slug}")
-def reader_document(request: Request, slug: str):
+@app.get("/lecturas/view/{file_path:path}")
+def reader_document(request: Request, file_path: str):
     """Render an individual Markdown document for reading on Kindle.
 
     Args:
         request: FastAPI HTTP request instance.
-        slug: Document identifier without extension.
+        file_path: Relative path to document within docs directory.
 
     Returns:
         TemplateResponse: Rendered reader article template.
 
     Raises:
-        HTTPException: If document is not found.
+        HTTPException: If document is not found or not markdown.
     """
-    doc = reader_service.get_document(slug)
+    doc = reader_service.get_markdown_html(file_path)
     if not doc:
         raise HTTPException(
             status_code=404, detail="Documento no encontrado."
@@ -344,3 +356,60 @@ def reader_document(request: Request, slug: str):
         "reader_view.html",
         {"doc": doc},
     )
+
+
+@app.get("/lecturas/download/{file_path:path}")
+def download_document(file_path: str):
+    """Deliver a document as a direct file download for Kindle.
+
+    Args:
+        file_path: Relative path to document within docs directory.
+
+    Returns:
+        FileResponse: Attachment download response.
+
+    Raises:
+        HTTPException: If document is not found.
+    """
+    resolved_path = reader_service.resolve_document_path(file_path)
+    if not resolved_path:
+        raise HTTPException(
+            status_code=404, detail="Archivo no encontrado."
+        )
+
+    return FileResponse(
+        path=resolved_path,
+        filename=resolved_path.name,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{resolved_path.name}"'
+            )
+        },
+    )
+
+
+@app.post("/lecturas/send/{file_path:path}")
+def send_to_kindle(file_path: str):
+    """Send document via email to user Kindle recipient address.
+
+    Args:
+        file_path: Relative path to document within docs directory.
+
+    Returns:
+        RedirectResponse: Redirect to /lecturas with status message.
+
+    Raises:
+        HTTPException: If document is not found.
+    """
+    resolved_path = reader_service.resolve_document_path(file_path)
+    if not resolved_path:
+        raise HTTPException(
+            status_code=404, detail="Archivo no encontrado."
+        )
+
+    success, message = email_service.send_document_to_kindle(resolved_path)
+    param = "msg" if success else "err"
+    encoded_msg = urllib.parse.quote(message)
+    dest_url = f"/lecturas?{param}={encoded_msg}"
+    return RedirectResponse(dest_url, status_code=303)
