@@ -234,6 +234,8 @@ def cmd_start() -> None:
         "0.0.0.0",
         "--port",
         str(PORT),
+        "--ws",
+        "none",
     ]
 
     process = subprocess.Popen(
@@ -383,6 +385,8 @@ def cmd_foreground() -> None:
         "0.0.0.0",
         "--port",
         str(PORT),
+        "--ws",
+        "none",
     ]
     os.execv(python_bin, args)
 
