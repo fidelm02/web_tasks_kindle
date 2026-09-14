@@ -34,6 +34,30 @@ def _safe(text: str | None) -> str:
     return escape(str(text).strip())
 
 
+def _make_page_footer(timestamp_str: str, project_name: str):
+    """Return canvas callback to draw running footer on each page.
+
+    Args:
+        timestamp_str: Formatted timestamp string (YYYY-MM-DD HH:MM).
+        project_name: Name of the project or section.
+
+    Returns:
+        Callable: Canvas draw callback function.
+    """
+
+    def _draw_footer(canvas: Any, doc: Any) -> None:
+        canvas.saveState()
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#666666"))
+        left_text = f"Timestamp: {timestamp_str} | Proyecto: {project_name}"
+        canvas.drawString(40, 22, left_text)
+        page_text = f"Pág. {doc.page}"
+        canvas.drawRightString(letter[0] - 40, 22, page_text)
+        canvas.restoreState()
+
+    return _draw_footer
+
+
 def generate_tasks_pdf(
     project_name: str,
     tasks: list[dict[str, Any]],
@@ -41,7 +65,8 @@ def generate_tasks_pdf(
     """Generate a clean PDF report of tasks sorted by status and title.
 
     Tasks are organized by status ('pending', 'completed', 'archived')
-    and sorted alphabetically by title within each group.
+    and sorted alphabetically by title within each group. Includes
+    running and document footers with timestamp YYYY-MM-DD HH:MM.
 
     Args:
         project_name: Name of the project or section.
@@ -114,17 +139,26 @@ def generate_tasks_pdf(
         alignment=2,
         textColor=colors.HexColor("#222222"),
     )
+    closing_footer_style = ParagraphStyle(
+        "ClosingFooter",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        alignment=1,
+        textColor=colors.HexColor("#666666"),
+    )
 
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     story: list[Any] = []
 
     # Encabezado
     story.append(
         Paragraph(f"Reporte de Tareas: {_safe(project_name)}", title_style)
     )
-    now_str = datetime.now().strftime("%d/%m/%Y, %H:%M")
     story.append(
         Paragraph(
-            f"Generado el {now_str} • Total: {len(tasks)} tarea(s)",
+            f"Registro: {timestamp_str} • Total: {len(tasks)} tarea(s)",
             meta_style,
         )
     )
@@ -236,7 +270,26 @@ def generate_tasks_pdf(
         story.append(table)
         story.append(Spacer(1, 10))
 
-    doc.build(story)
+    # Pie de página final de seguimiento en el cuerpo
+    story.append(Spacer(1, 12))
+    story.append(
+        HRFlowable(
+            width="100%",
+            thickness=0.8,
+            color=colors.HexColor("#CCCCCC"),
+            spaceAfter=8,
+        )
+    )
+    story.append(
+        Paragraph(
+            f"Registro histórico de generación: <b>{timestamp_str}</b> • "
+            f"Kindle Tasks & Home Portal",
+            closing_footer_style,
+        )
+    )
+
+    footer_cb = _make_page_footer(timestamp_str, project_name)
+    doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
     buffer.seek(0)
     return buffer.getvalue()
 
@@ -246,6 +299,9 @@ def generate_documents_pdf(
     categories: dict[str, list[dict[str, Any]]],
 ) -> bytes:
     """Generate a clean PDF report of the documents library catalog.
+
+    Includes running footer and document closing footer with
+    timestamp YYYY-MM-DD HH:MM.
 
     Args:
         project_name: Name of the project or section.
@@ -318,7 +374,17 @@ def generate_documents_pdf(
         alignment=2,
         textColor=colors.HexColor("#555555"),
     )
+    closing_footer_style = ParagraphStyle(
+        "DocClosingFooter",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        alignment=1,
+        textColor=colors.HexColor("#666666"),
+    )
 
+    timestamp_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     story: list[Any] = []
 
     story.append(
@@ -328,10 +394,9 @@ def generate_documents_pdf(
         )
     )
     total_docs = sum(len(docs) for docs in categories.values())
-    now_str = datetime.now().strftime("%d/%m/%Y, %H:%M")
     story.append(
         Paragraph(
-            f"Generado el {now_str} • Total: {total_docs} archivo(s)",
+            f"Registro: {timestamp_str} • Total: {total_docs} archivo(s)",
             meta_style,
         )
     )
@@ -413,6 +478,25 @@ def generate_documents_pdf(
         story.append(table)
         story.append(Spacer(1, 10))
 
-    doc.build(story)
+    # Pie de página final de seguimiento en el cuerpo
+    story.append(Spacer(1, 12))
+    story.append(
+        HRFlowable(
+            width="100%",
+            thickness=0.8,
+            color=colors.HexColor("#CCCCCC"),
+            spaceAfter=8,
+        )
+    )
+    story.append(
+        Paragraph(
+            f"Registro histórico de generación: <b>{timestamp_str}</b> • "
+            f"Kindle Tasks & Home Portal",
+            closing_footer_style,
+        )
+    )
+
+    footer_cb = _make_page_footer(timestamp_str, project_name)
+    doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
     buffer.seek(0)
     return buffer.getvalue()

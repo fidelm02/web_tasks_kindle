@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from filelock import FileLock
 
-_BASE_DIR = Path(__file__).resolve().parent.parent
+_BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECTIONS_FILE = str(_BASE_DIR / "data" / "sections.json")
 SECTIONS_LOCK = SECTIONS_FILE + ".lock"
 VALID_STATUSES = {"active", "completed", "archived"}

@@ -1,7 +1,5 @@
-"""Paquete principal de Kindle Tasks & Home Portal."""
+"""Capa de servicios de negocio para Kindle Tasks & Home Portal."""
 
-from app import constants
-from app import storage
 from app.services import clickup_service
 from app.services import email_service
 from app.services import pdf_service
@@ -9,8 +7,6 @@ from app.services import reader_service
 from app.services import section_service
 
 __all__ = [
-    "constants",
-    "storage",
     "clickup_service",
     "email_service",
     "pdf_service",

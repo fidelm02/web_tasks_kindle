@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 import markdown
 
-BASE_DIR: Path = Path(__file__).resolve().parent.parent
+BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
 DOCS_DIR: Path = BASE_DIR / "docs"
 DOCS_LAU_DIR: Path = BASE_DIR / "docs_lau"
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".epub", ".txt"}
