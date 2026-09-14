@@ -10,6 +10,7 @@ Author:
 
 from __future__ import annotations
 
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ import markdown
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 DOCS_DIR: Path = BASE_DIR / "docs"
+ARCHIVE_DIR: Path = DOCS_DIR / "archive"
 SUPPORTED_EXTENSIONS = {".md", ".pdf", ".epub", ".txt"}
 
 
@@ -33,11 +35,36 @@ def _ensure_docs_dir() -> Path:
     return DOCS_DIR
 
 
+def _is_active_document(file_path: Path, base_dir: Path) -> bool:
+    """Check if file is supported and outside archive/hidden folders.
+
+    Args:
+        file_path: Absolute or resolved file path to evaluate.
+        base_dir: Base directory for relativity calculation.
+
+    Returns:
+        bool: True if document is active and valid.
+    """
+    if not file_path.is_file():
+        return False
+    if file_path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        return False
+    try:
+        parts = file_path.relative_to(base_dir).parts
+    except ValueError:
+        return False
+    for part in parts:
+        lower = part.lower()
+        if lower.startswith(".") or lower == "archive":
+            return False
+    return True
+
+
 def list_documents_by_category() -> dict[str, list[dict[str, Any]]]:
     """Scan documents directory recursively grouped by subfolder.
 
     Discovers all supported document formats (.md, .pdf, .epub, .txt)
-    and organizes them into categorized sections based on subfolders.
+    excluding archive and hidden folders, organized by category.
 
     Args:
         None.
@@ -53,7 +80,7 @@ def list_documents_by_category() -> dict[str, list[dict[str, Any]]]:
         [
             f
             for f in directory.rglob("*")
-            if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+            if _is_active_document(f, directory)
         ],
         key=lambda p: (str(p.parent), p.name.lower()),
     )
@@ -132,7 +159,7 @@ def count_all_documents() -> int:
     return sum(
         1
         for f in directory.rglob("*")
-        if f.is_file() and f.suffix.lower() in SUPPORTED_EXTENSIONS
+        if _is_active_document(f, directory)
     )
 
 
@@ -206,3 +233,110 @@ def get_markdown_html(rel_path: str) -> dict[str, Any] | None:
         }
     except OSError:
         return None
+
+
+def get_existing_categories() -> list[str]:
+    """Return sorted list of existing non-archive subfolders.
+
+    Args:
+        None.
+
+    Returns:
+        list[str]: Category folder names.
+    """
+    directory: Path = _ensure_docs_dir()
+    categories: set[str] = set()
+    for f in directory.iterdir():
+        if (
+            f.is_dir()
+            and not f.name.startswith(".")
+            and f.name.lower() != "archive"
+        ):
+            categories.add(f.name)
+    return sorted(categories)
+
+
+def archive_document(rel_path: str) -> tuple[bool, str]:
+    """Move a document to the archive directory with timestamp.
+
+    Args:
+        rel_path: Relative path of the document inside docs.
+
+    Returns:
+        tuple[bool, str]: Success flag and feedback message.
+    """
+    file_path = resolve_document_path(rel_path)
+    if not file_path:
+        return False, "Documento no encontrado o ruta no válida."
+
+    directory: Path = _ensure_docs_dir()
+    try:
+        rel = file_path.relative_to(directory)
+    except ValueError:
+        return False, "Ruta fuera del directorio de documentos."
+
+    rel_parent = rel.parent
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stem = file_path.stem
+    suffix = file_path.suffix
+    new_filename = f"{stem}_{timestamp}{suffix}"
+
+    target_archive_dir = (
+        ARCHIVE_DIR if str(rel_parent) == "." else ARCHIVE_DIR / rel_parent
+    )
+    target_archive_dir.mkdir(parents=True, exist_ok=True)
+    target_path = target_archive_dir / new_filename
+
+    try:
+        shutil.move(str(file_path), str(target_path))
+        return True, f"Documento archivado como '{new_filename}'."
+    except OSError as exc:
+        return False, f"Error al archivar documento: {exc}"
+
+
+def save_uploaded_document(
+    filename: str,
+    file_obj: Any,
+    subfolder: str = "",
+) -> tuple[bool, str]:
+    """Save an uploaded document safely within docs directory.
+
+    Args:
+        filename: Original file name from client.
+        file_obj: File-like object with read method.
+        subfolder: Optional subfolder category name.
+
+    Returns:
+        tuple[bool, str]: Status flag and feedback message.
+    """
+    directory: Path = _ensure_docs_dir()
+    clean_name = Path(filename).name.strip()
+    if not clean_name:
+        return False, "El nombre de archivo no puede estar vacío."
+
+    ext = Path(clean_name).suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        allowed = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        return False, f"Formato '{ext}' no admitido. Permitidos: {allowed}."
+
+    safe_name = clean_name.replace(" ", "_")
+
+    target_dir = directory
+    safe_folder = (
+        subfolder.strip()
+        .strip("/\\")
+        .replace("..", "")
+        .replace(" ", "_")
+    )
+    if safe_folder and safe_folder.lower() != "archive":
+        target_dir = directory / safe_folder
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    dest_path = target_dir / safe_name
+    try:
+        with open(dest_path, "wb") as f:
+            shutil.copyfileobj(file_obj, f)
+        folder_label = safe_folder if safe_folder else "General"
+        return True, f"Archivo '{safe_name}' subido a '{folder_label}'."
+    except OSError as exc:
+        return False, f"Error al guardar archivo: {exc}"

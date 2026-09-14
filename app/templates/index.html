@@ -50,16 +50,37 @@
 
         <div class="form-grid-2">
           <div class="form-group">
-            <label for="task-priority">Prioridad:</label>
-            <select id="task-priority" class="form-control" name="priority">
-              <option value="Alta">Alta (Urgente / Crítica)</option>
-              <option value="Media" selected>Media (Normal)</option>
-              <option value="Baja">Baja (Secundaria)</option>
-            </select>
+            <label>Prioridad:</label>
+            <div class="priority-segmented">
+              <label class="seg-radio" for="new-prio-alta">
+                <input type="radio" id="new-prio-alta" name="priority" value="Alta">
+                <span class="seg-btn">Alta</span>
+              </label>
+              <label class="seg-radio" for="new-prio-media">
+                <input type="radio" id="new-prio-media" name="priority" value="Media" checked>
+                <span class="seg-btn">Media</span>
+              </label>
+              <label class="seg-radio" for="new-prio-baja">
+                <input type="radio" id="new-prio-baja" name="priority" value="Baja">
+                <span class="seg-btn">Baja</span>
+              </label>
+            </div>
           </div>
           <div class="form-group">
             <label for="task-date">Fecha límite:</label>
-            <input id="task-date" class="form-control" type="date" name="target_date">
+            <div class="date-picker-group">
+              <div class="date-input-row">
+                <button type="button" class="btn-date-step" onclick="stepDate('task-date', -1)" title="Día anterior" aria-label="Día anterior">−</button>
+                <input id="task-date" class="form-control date-input-field" type="text" name="target_date" placeholder="AAAA-MM-DD">
+                <button type="button" class="btn-date-step" onclick="stepDate('task-date', 1)" title="Día siguiente" aria-label="Día siguiente">+</button>
+              </div>
+              <div class="date-presets">
+                <button type="button" class="btn-date-preset" onclick="setDatePreset('task-date', 0)">Hoy</button>
+                <button type="button" class="btn-date-preset" onclick="setDatePreset('task-date', 1)">Mañana</button>
+                <button type="button" class="btn-date-preset" onclick="setDatePreset('task-date', 7)">+7d</button>
+                <button type="button" class="btn-date-preset btn-date-clear" onclick="setDatePreset('task-date', null)" title="Sin fecha">Borrar</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -166,17 +187,38 @@
 
               <div class="form-grid-2">
                 <div class="form-group">
-                  <label for="edit-priority-{{ task.id }}">Prioridad:</label>
-                  <select id="edit-priority-{{ task.id }}" class="form-control" name="priority">
-                    <option value="Alta" {% if task.priority == 'Alta' %}selected{% endif %}>Alta (Urgente)</option>
-                    <option value="Media" {% if task.priority == 'Media' %}selected{% endif %}>Media (Normal)</option>
-                    <option value="Baja" {% if task.priority == 'Baja' %}selected{% endif %}>Baja (Secundaria)</option>
-                  </select>
+                  <label>Prioridad:</label>
+                  <div class="priority-segmented">
+                    <label class="seg-radio" for="edit-prio-alta-{{ task.id }}">
+                      <input type="radio" id="edit-prio-alta-{{ task.id }}" name="priority" value="Alta" {% if task.priority == 'Alta' %}checked{% endif %}>
+                      <span class="seg-btn">Alta</span>
+                    </label>
+                    <label class="seg-radio" for="edit-prio-media-{{ task.id }}">
+                      <input type="radio" id="edit-prio-media-{{ task.id }}" name="priority" value="Media" {% if task.priority == 'Media' or not task.priority %}checked{% endif %}>
+                      <span class="seg-btn">Media</span>
+                    </label>
+                    <label class="seg-radio" for="edit-prio-baja-{{ task.id }}">
+                      <input type="radio" id="edit-prio-baja-{{ task.id }}" name="priority" value="Baja" {% if task.priority == 'Baja' %}checked{% endif %}>
+                      <span class="seg-btn">Baja</span>
+                    </label>
+                  </div>
                 </div>
 
                 <div class="form-group">
                   <label for="edit-date-{{ task.id }}">Fecha límite:</label>
-                  <input id="edit-date-{{ task.id }}" class="form-control" type="date" name="target_date" value="{{ task.target_date or '' }}">
+                  <div class="date-picker-group">
+                    <div class="date-input-row">
+                      <button type="button" class="btn-date-step" onclick="stepDate('edit-date-{{ task.id }}', -1)" title="Día anterior" aria-label="Día anterior">−</button>
+                      <input id="edit-date-{{ task.id }}" class="form-control date-input-field" type="text" name="target_date" value="{{ task.target_date or '' }}" placeholder="AAAA-MM-DD">
+                      <button type="button" class="btn-date-step" onclick="stepDate('edit-date-{{ task.id }}', 1)" title="Día siguiente" aria-label="Día siguiente">+</button>
+                    </div>
+                    <div class="date-presets">
+                      <button type="button" class="btn-date-preset" onclick="setDatePreset('edit-date-{{ task.id }}', 0)">Hoy</button>
+                      <button type="button" class="btn-date-preset" onclick="setDatePreset('edit-date-{{ task.id }}', 1)">Mañana</button>
+                      <button type="button" class="btn-date-preset" onclick="setDatePreset('edit-date-{{ task.id }}', 7)">+7d</button>
+                      <button type="button" class="btn-date-preset btn-date-clear" onclick="setDatePreset('edit-date-{{ task.id }}', null)" title="Sin fecha">Borrar</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 

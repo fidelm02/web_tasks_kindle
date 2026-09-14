@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 import urllib.parse
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -417,12 +417,14 @@ def reader_catalog(
     """
     categories = reader_service.list_documents_by_category()
     total_docs = reader_service.count_all_documents()
+    existing_categories = reader_service.get_existing_categories()
     return templates.TemplateResponse(
         request,
         "reader_list.html",
         {
             "categories": categories,
             "total_docs": total_docs,
+            "existing_categories": existing_categories,
             "msg": msg,
             "err": err,
         },
@@ -510,3 +512,54 @@ def send_to_kindle(file_path: str):
     encoded_msg = urllib.parse.quote(message)
     dest_url = f"/lecturas?{param}={encoded_msg}"
     return RedirectResponse(dest_url, status_code=303)
+
+
+@app.post("/lecturas/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    category: str = Form(""),
+    new_category: str = Form(""),
+) -> RedirectResponse:
+    """Upload a document to the library from desktop or mobile.
+
+    Args:
+        file: Uploaded file payload.
+        category: Selected existing folder name or empty for root.
+        new_category: Optional newly typed folder category.
+
+    Returns:
+        RedirectResponse: Redirect to /lecturas with status message.
+    """
+    target_folder = (
+        new_category.strip() if new_category.strip() else category.strip()
+    )
+    success, message = reader_service.save_uploaded_document(
+        filename=file.filename or "documento",
+        file_obj=file.file,
+        subfolder=target_folder,
+    )
+    param = "msg" if success else "err"
+    encoded_msg = urllib.parse.quote(message)
+    return RedirectResponse(
+        f"/lecturas?{param}={encoded_msg}",
+        status_code=303,
+    )
+
+
+@app.post("/lecturas/archive/{file_path:path}")
+def archive_document(file_path: str) -> RedirectResponse:
+    """Move a document to the archive directory with timestamp.
+
+    Args:
+        file_path: Relative path to document within docs directory.
+
+    Returns:
+        RedirectResponse: Redirect to /lecturas with status message.
+    """
+    success, message = reader_service.archive_document(file_path)
+    param = "msg" if success else "err"
+    encoded_msg = urllib.parse.quote(message)
+    return RedirectResponse(
+        f"/lecturas?{param}={encoded_msg}",
+        status_code=303,
+    )

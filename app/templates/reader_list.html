@@ -22,6 +22,54 @@
   <span class="tab-badge">{{ total_docs }} archivos</span>
 </div>
 
+<!-- Sección de carga de documentos: accesible desde PC o móvil -->
+<details class="new-task-accordion" style="margin-bottom: 22px;">
+  <summary>
+    <span class="text-closed">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      Subir Documento
+    </span>
+    <span class="text-open">✖ Cerrar Formulario</span>
+  </summary>
+  <div class="form-body">
+    <form action="/lecturas/upload" method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="upload-file">Seleccionar archivo (.md, .pdf, .epub, .txt):</label>
+        <input id="upload-file" class="form-control" type="file" name="file" accept=".md,.pdf,.epub,.txt" required style="padding: 10px; background-color: #FAFAFA;">
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="upload-category">Carpeta / Categoría existente:</label>
+          <select id="upload-category" class="form-control" name="category">
+            <option value="">General (Carpeta raíz)</option>
+            {% for cat in existing_categories %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="upload-new-category">O crear nueva subcarpeta:</label>
+          <input id="upload-new-category" class="form-control" type="text" name="new_category" placeholder="Ej. manuales, recetas, libros">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-block btn-primary" style="margin-top: 8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 6px;" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="17 8 12 3 7 8"></polyline>
+          <line x1="12" y1="3" x2="12" y2="15"></line>
+        </svg>
+        Subir a la Biblioteca
+      </button>
+    </form>
+  </div>
+</details>
+
 {% if categories %}
   {% for category_name, docs in categories.items() %}
   <section class="home-section" style="margin-bottom: 24px;">
@@ -88,6 +136,18 @@
               Enviar al Kindle
             </button>
           </form>
+
+          <!-- Archivar / Eliminar a carpeta archive con timestamp -->
+          <form class="inline" action="/lecturas/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
+            <button type="submit" class="btn btn-sm" title="Mover a la carpeta archive con fecha y hora" style="border-color: #777777; color: #444444;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
+                <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                <rect x="1" y="3" width="22" height="5"></rect>
+                <line x1="10" y1="12" x2="14" y2="12"></line>
+              </svg>
+              Archivar
+            </button>
+          </form>
         </div>
       </div>
       {% endfor %}
@@ -97,7 +157,7 @@
 {% else %}
 <div class="empty-state">
   <h3>Biblioteca vacía</h3>
-  <p>Coloca archivos <code>.md</code>, <code>.pdf</code> o <code>.epub</code> en la carpeta <code>docs/</code> o dentro de subcarpetas para verlos aquí organizados.</p>
+  <p>Sube un archivo usando el formulario superior o coloca archivos <code>.md</code>, <code>.pdf</code> o <code>.epub</code> en la carpeta <code>docs/</code>.</p>
 </div>
 {% endif %}
 

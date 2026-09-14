@@ -715,6 +715,125 @@
       text-decoration: underline;
     }
 
+    /* Segmented Control para Prioridad (Kindle-safe, sin <select>) */
+    .priority-segmented {
+      display: flex;
+      gap: 6px;
+      width: 100%;
+    }
+    .priority-segmented .seg-radio {
+      flex: 1;
+      margin: 0;
+      cursor: pointer;
+      position: relative;
+    }
+    .priority-segmented .seg-radio input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      margin: 0;
+    }
+    .priority-segmented .seg-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 6px 4px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      box-sizing: border-box;
+      user-select: none;
+    }
+    .priority-segmented .seg-radio input[type="radio"]:checked + .seg-btn {
+      background-color: #000000;
+      color: #FFFFFF;
+      border-color: #000000;
+    }
+    .priority-segmented .seg-radio input[type="radio"]:checked + .seg-btn::before {
+      content: "✓ ";
+      font-weight: 900;
+      margin-right: 3px;
+    }
+    .priority-segmented .seg-radio input[type="radio"]:focus + .seg-btn {
+      outline: 2px dashed #000000;
+      outline-offset: 2px;
+    }
+
+    /* Date Picker Kindle-safe (sin <input type="date"> ni popups nativos) */
+    .date-picker-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+    .date-input-row {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+    }
+    .date-input-field {
+      flex: 1;
+      text-align: center;
+      font-family: monospace;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 8px 8px;
+      min-height: 48px;
+      box-sizing: border-box;
+    }
+    .btn-date-step {
+      width: 48px;
+      min-height: 48px;
+      border: 2px solid #000000;
+      background-color: #F0F0F0;
+      color: #000000;
+      font-size: 24px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      user-select: none;
+      padding: 0;
+    }
+    .btn-date-step:active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .date-presets {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-date-preset {
+      flex: 1;
+      min-height: 38px;
+      border: 1.5px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 4px;
+      user-select: none;
+    }
+    .btn-date-preset:active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .btn-date-clear {
+      background-color: #F4F4F4;
+      color: #555555;
+    }
+
     @media (max-width: 480px) {
       .form-grid-2 {
         flex-direction: column;
@@ -773,6 +892,41 @@
           window.location.hash = '';
         }
       }
+    }
+
+    function padZero(n) {
+      return n < 10 ? '0' + n : '' + n;
+    }
+
+    function formatDateISO(d) {
+      return d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate());
+    }
+
+    function setDatePreset(inputId, daysOffset) {
+      var input = document.getElementById(inputId);
+      if (!input) return;
+      if (daysOffset === null) {
+        input.value = '';
+        return;
+      }
+      var d = new Date();
+      d.setDate(d.getDate() + daysOffset);
+      input.value = formatDateISO(d);
+    }
+
+    function stepDate(inputId, stepDays) {
+      var input = document.getElementById(inputId);
+      if (!input) return;
+      var d;
+      var val = (input.value || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        var parts = val.split('-');
+        d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      } else {
+        d = new Date();
+      }
+      d.setDate(d.getDate() + stepDays);
+      input.value = formatDateISO(d);
     }
   </script>
 </body>
