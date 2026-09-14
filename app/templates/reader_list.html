@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Lecturas Markdown - Kindle Scribe{% endblock %}
+{% block page_heading %}Lecturas - Fidel{% endblock %}
+
+{% block content %}
+<div class="section-toolbar">
+  <h2>Biblioteca de Documentos</h2>
+  <span class="tab-badge">{{ docs | length }} disponibles</span>
+</div>
+
+{% if docs %}
+<div style="display: flex; flex-direction: column; gap: 14px;">
+  {% for doc in docs %}
+  <div class="home-section" style="margin-bottom: 0;">
+    <div class="home-section-header" style="display: flex; justify-content: space-between; align-items: baseline;">
+      <span>📖 {{ doc.title }}</span>
+      <span style="font-size: 14px; font-weight: normal; color: #444444;">{{ doc.date }} · {{ doc.size_kb }} KB</span>
+    </div>
+    <div class="home-section-body">
+      <p style="margin: 0; font-size: 18px; color: #333333; line-height: 1.4;">
+        {{ doc.description }}
+      </p>
+      <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+        <a href="/lecturas/{{ doc.slug }}" class="btn btn-primary btn-sm" style="font-size: 18px; padding: 8px 16px;">
+          Leer Documento →
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No hay lecturas disponibles</h3>
+  <p>Coloca archivos <code>.md</code> en la carpeta <code>docs/</code> para verlos aquí.</p>
+</div>
+{% endif %}
+
+{% endblock %}

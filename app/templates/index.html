@@ -1,6 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Pendientes - Kindle Tasks{% endblock %}
+{% block title %}Pendientes - Casa{% endblock %}
+{% block page_heading %}Pendientes - Casa{% endblock %}
+
+{% block nav %}
+<nav class="nav-tabs">
+  <a href="/tasks" class="nav-tab active">
+    📋 Pendientes <span class="tab-badge">{{ pending_count }}</span>
+  </a>
+  <a href="/tasks/completed" class="nav-tab">
+    ✔️ Completadas <span class="tab-badge">{{ completed_count }}</span>
+  </a>
+</nav>
+{% endblock %}
 
 {% block content %}
 
@@ -12,7 +24,7 @@
     </summary>
     <div class="form-body">
       <form action="/tasks/create" method="POST">
-        <input type="hidden" name="redirect_to" value="/">
+        <input type="hidden" name="redirect_to" value="/tasks">
         <div class="form-group">
           <label for="task-title">Título de la tarea <span style="font-weight: normal;">(requerido)</span>:</label>
           <input id="task-title" class="form-control" type="text" name="title" placeholder="Ej. Comprar repuesto o escribir reporte" required>
@@ -58,7 +70,7 @@
         <div class="task-lead">
           <!-- Botón Checkbox táctil para completar (min 48x48px) -->
           <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
-            <input type="hidden" name="redirect_to" value="/">
+            <input type="hidden" name="redirect_to" value="/tasks">
             <button type="submit" class="btn-checkbox" title="Marcar como completada" aria-label="Marcar como completada">
               <span class="checkbox-square"></span>
             </button>
@@ -90,7 +102,7 @@
 
         <div class="task-actions">
           <form class="inline" action="/tasks/{{ task.id }}/delete" method="POST">
-            <input type="hidden" name="redirect_to" value="/">
+            <input type="hidden" name="redirect_to" value="/tasks">
             <button type="submit" class="btn-delete" title="Borrar tarea permanentemente" aria-label="Borrar tarea">✖</button>
           </form>
         </div>
@@ -98,7 +110,7 @@
       {% else %}
       <li class="empty-state">
         <h3>🎉 ¡Todo al día!</h3>
-        <p>No tienes tareas pendientes. Presiona <strong>➕ Nueva Tarea</strong> arriba para añadir una.</p>
+        <p>No tienes tareas pendientes por ahora.</p>
       </li>
       {% endfor %}
     </ul>

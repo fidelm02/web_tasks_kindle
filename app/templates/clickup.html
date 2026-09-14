@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}ClickUp - Fidel{% endblock %}
+{% block page_heading %}ClickUp - Fidel{% endblock %}
+
+{% block nav %}
+<nav class="nav-tabs">
+  <a href="/clickup?view=sprint" class="nav-tab {% if active_view == 'sprint' %}active{% endif %}">
+    ⚡ Sprint Actual
+  </a>
+  <a href="/clickup?view=backlog" class="nav-tab {% if active_view == 'backlog' %}active{% endif %}">
+    📦 Backlog
+  </a>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="section-toolbar">
+  <h2>{{ list_name }}</h2>
+  <span class="tab-badge">{{ tasks | length }} tareas asignadas</span>
+</div>
+
+{% if error %}
+<div class="notice-box">
+  <strong>⚠️ Aviso de conexión:</strong> {{ error }}
+  <p style="margin: 8px 0 0 0; font-size: 16px;">
+    Verifica que tu archivo <code>app/constants.py</code> contenga tu token personal de ClickUp.
+  </p>
+</div>
+{% endif %}
+
+{% if tasks %}
+<ul class="task-list">
+  {% for task in tasks %}
+  <li class="task-card priority-{{ task.priority }}">
+    <div class="task-info">
+      <div class="task-title-row">
+        <!-- Prioridad -->
+        {% if task.priority == 'Urgent' or task.priority == 'High' or task.priority == 'Alta' %}
+          <span class="priority-badge badge-alta">▲ {{ task.priority }}</span>
+        {% elif task.priority == 'Normal' or task.priority == 'Media' %}
+          <span class="priority-badge badge-media">{{ task.priority }}</span>
+        {% else %}
+          <span class="priority-badge badge-baja">{{ task.priority }}</span>
+        {% endif %}
+
+        <!-- Estado -->
+        {% if task.status == 'DONE' or task.status == 'COMPLETE' or task.status == 'COMPLETED' %}
+          <span class="status-badge badge-done">✓ {{ task.status }}</span>
+        {% elif 'PROGRESS' in task.status or 'REVIEW' in task.status %}
+          <span class="status-badge badge-in-progress">● {{ task.status }}</span>
+        {% else %}
+          <span class="status-badge badge-open">{{ task.status }}</span>
+        {% endif %}
+
+        <!-- Fecha si existe -->
+        {% if task.due_date %}
+          <span class="task-meta" style="margin-left: auto;">📅 {{ task.due_date }}</span>
+        {% endif %}
+      </div>
+
+      <div class="task-title" style="margin: 8px 0;">
+        {{ task.name }}
+      </div>
+
+      <!-- Descripción desplegable -->
+      {% if task.description %}
+      <details style="border: 1px solid #000000; margin-top: 8px; background-color: #FAFAFA;">
+        <summary style="padding: 6px 12px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: #EEEEEE;">
+          📄 Ver descripción
+        </summary>
+        <div style="padding: 10px 14px; font-size: 17px; line-height: 1.5; white-space: pre-wrap; font-family: inherit;">{{ task.description }}</div>
+      </details>
+      {% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{% if not error %}
+<div class="empty-state">
+  <h3>No hay tareas pendientes</h3>
+  <p>No tienes tareas asignadas en esta lista de ClickUp.</p>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

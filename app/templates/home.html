@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Portal Casa - Kindle Scribe{% endblock %}
+{% block page_heading %}Portal Casa{% endblock %}
+
+{% block header %}
+<header class="app-header">
+  <div class="header-branding">
+    <div class="header-title-group">
+      <h1>Portal Casa</h1>
+      <span class="device-tag">Kindle Scribe</span>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="portal-grid">
+
+  <!-- SECCIÓN CASA -->
+  <section class="home-section">
+    <div class="home-section-header">
+      🏠 Casa
+    </div>
+    <div class="home-section-body">
+      <a href="/tasks" class="portal-link-btn">
+        <span>📋 Pendientes del Hogar</span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ pending_count }} activas</span>
+          <span>→</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- SECCIÓN LAU -->
+  <section class="home-section">
+    <div class="home-section-header">
+      🌸 Lau
+    </div>
+    <div class="home-section-body">
+      <div class="portal-placeholder">
+        Espacio para notas y herramientas de Lau (Próximamente)
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN FIDEL -->
+  <section class="home-section">
+    <div class="home-section-header">
+      ⚡ Fidel
+    </div>
+    <div class="home-section-body">
+      <a href="/clickup" class="portal-link-btn">
+        <span>💼 ClickUp (Trabajo)</span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">Sprint / Backlog</span>
+          <span>→</span>
+        </div>
+      </a>
+
+      <a href="/lecturas" class="portal-link-btn">
+        <span>📖 Lecturas Markdown</span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ docs_count }} artículos</span>
+          <span>→</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

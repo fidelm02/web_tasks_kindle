@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>{% block title %}Kindle Tasks{% endblock %}</title>
+  <title>{% block title %}Portal Casa - Kindle Scribe{% endblock %}</title>
   <style>
     /* Reset e-ink: sin animaciones, sin sombras, alto contraste */
     * {
@@ -35,8 +35,15 @@
     .header-branding {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 10px;
+    }
+    .header-title-group {
+      display: flex;
       align-items: baseline;
-      margin-bottom: 14px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
     .header-branding h1 {
       margin: 0;
@@ -52,7 +59,29 @@
       text-transform: uppercase;
     }
 
-    /* Barra de Pestañas (Tabs de Navegación) */
+    /* Botón Inicio de Encabezado */
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 14px;
+      min-height: 48px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: bold;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-home:active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+
+    /* Barra de Pestañas (Tabs) */
     .nav-tabs {
       display: flex;
       gap: 8px;
@@ -94,7 +123,7 @@
       border-color: #FFFFFF;
     }
 
-    /* Botones genéricos */
+    /* Botones genéricos táctiles */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -123,6 +152,58 @@
       min-height: 44px;
       font-size: 17px;
       padding: 6px 12px;
+    }
+
+    /* Portal Home Sections */
+    .home-section {
+      border: 2px solid #000000;
+      margin-bottom: 24px;
+      background-color: #FFFFFF;
+    }
+    .home-section-header {
+      background-color: #F0F0F0;
+      border-bottom: 2px solid #000000;
+      padding: 10px 16px;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .home-section-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .portal-link-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 60px;
+      padding: 14px 18px;
+      border: 2px solid #000000;
+      background-color: #FFFFFF;
+      color: #000000;
+      text-decoration: none;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    .portal-link-btn:active {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .portal-link-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .portal-placeholder {
+      border: 2px dashed #777777;
+      padding: 20px;
+      text-align: center;
+      background-color: #FAFAFA;
+      color: #555555;
+      font-size: 18px;
     }
 
     /* Formulario Colapsable (<details>) */
@@ -196,7 +277,7 @@
     .task-card {
       border: 2px solid #000000;
       margin-bottom: 12px;
-      padding: 10px 14px;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -291,8 +372,8 @@
       text-decoration: underline;
     }
 
-    /* Etiquetas de prioridad de alto contraste */
-    .priority-badge {
+    /* Etiquetas de prioridad y estado */
+    .priority-badge, .status-badge {
       display: inline-block;
       font-size: 13px;
       font-weight: 900;
@@ -300,20 +381,35 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .badge-alta {
+    .badge-alta, .badge-urgent {
       background-color: #000000;
       color: #FFFFFF;
       border: 1px solid #000000;
     }
-    .badge-media {
+    .badge-media, .badge-high {
       background-color: #FFFFFF;
       color: #000000;
       border: 1.5px solid #000000;
     }
-    .badge-baja {
+    .badge-baja, .badge-normal, .badge-low {
       background-color: #F0F0F0;
       color: #444444;
       border: 1px dashed #666666;
+    }
+
+    .badge-done {
+      background-color: #000000;
+      color: #FFFFFF;
+    }
+    .badge-in-progress {
+      background-color: #FFFFFF;
+      color: #000000;
+      border: 2px solid #000000;
+    }
+    .badge-open {
+      background-color: #EEEEEE;
+      color: #333333;
+      border: 1px solid #777777;
     }
 
     /* Acciones de fila */
@@ -335,7 +431,7 @@
       font-weight: bold;
     }
 
-    /* Estado vacío */
+    /* Estado vacío y avisos */
     .empty-state {
       border: 2px dashed #666666;
       padding: 32px 16px;
@@ -353,6 +449,13 @@
       font-size: 17px;
       color: #444444;
     }
+    .notice-box {
+      border: 2px solid #000000;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      background-color: #F8F8F8;
+      font-size: 18px;
+    }
 
     /* Barra de herramientas / Subsección */
     .section-toolbar {
@@ -368,6 +471,88 @@
       font-size: 24px;
       border: none;
       padding: 0;
+    }
+
+    /* Lector Markdown Typography */
+    .reader-article {
+      font-family: "Bookerly", Georgia, serif;
+      font-size: 21px;
+      line-height: 1.6;
+      color: #000000;
+      word-break: break-word;
+    }
+    .reader-article h1 {
+      font-size: 30px;
+      font-weight: 900;
+      border-bottom: 3px solid #000000;
+      padding-bottom: 8px;
+      margin-top: 0;
+      margin-bottom: 18px;
+    }
+    .reader-article h2 {
+      font-size: 25px;
+      font-weight: bold;
+      border-bottom: 1px solid #000000;
+      padding-bottom: 6px;
+      margin-top: 28px;
+      margin-bottom: 14px;
+    }
+    .reader-article h3 {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 22px;
+      margin-bottom: 10px;
+    }
+    .reader-article p {
+      margin-bottom: 16px;
+    }
+    .reader-article blockquote {
+      border-left: 4px solid #000000;
+      margin: 18px 0;
+      padding: 6px 16px;
+      background-color: #F8F8F8;
+      font-style: italic;
+    }
+    .reader-article pre {
+      background-color: #F0F0F0;
+      border: 1.5px solid #000000;
+      padding: 12px;
+      overflow-x: auto;
+      font-family: monospace;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    .reader-article code {
+      font-family: monospace;
+      background-color: #F0F0F0;
+      padding: 2px 5px;
+      border: 1px solid #CCCCCC;
+    }
+    .reader-article pre code {
+      border: none;
+      padding: 0;
+      background: none;
+    }
+    .reader-article table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+    }
+    .reader-article th, .reader-article td {
+      border: 1px solid #000000;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .reader-article th {
+      background-color: #F0F0F0;
+      font-weight: bold;
+    }
+    .reader-article ul, .reader-article ol {
+      padding-left: 26px;
+      margin-bottom: 18px;
+    }
+    .reader-article li {
+      margin-bottom: 6px;
     }
 
     form.inline {
@@ -395,20 +580,20 @@
 </head>
 <body>
 
+  {% block header %}
   <header class="app-header">
     <div class="header-branding">
-      <h1>Kindle Tasks</h1>
-      <span class="device-tag">E-Ink LAN</span>
+      <div class="header-title-group">
+        <h1>{% block page_heading %}Kindle Tasks{% endblock %}</h1>
+        <span class="device-tag">E-Ink LAN</span>
+      </div>
+      {% if show_home_btn | default(true) %}
+      <a href="/" class="btn-home" title="Ir al Portal de Inicio">⌂ Inicio</a>
+      {% endif %}
     </div>
-    <nav class="nav-tabs">
-      <a href="/" class="nav-tab {% if active_tab == 'pending' %}active{% endif %}">
-        📋 Pendientes <span class="tab-badge">{{ pending_count }}</span>
-      </a>
-      <a href="/completed" class="nav-tab {% if active_tab == 'completed' %}active{% endif %}">
-        ✔️ Completadas <span class="tab-badge">{{ completed_count }}</span>
-      </a>
-    </nav>
+    {% block nav %}{% endblock %}
   </header>
+  {% endblock %}
 
   <main>
     {% block content %}{% endblock %}

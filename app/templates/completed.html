@@ -1,14 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Completadas - Kindle Tasks{% endblock %}
+{% block title %}Completadas - Casa{% endblock %}
+{% block page_heading %}Completadas - Casa{% endblock %}
+
+{% block nav %}
+<nav class="nav-tabs">
+  <a href="/tasks" class="nav-tab">
+    📋 Pendientes <span class="tab-badge">{{ pending_count }}</span>
+  </a>
+  <a href="/tasks/completed" class="nav-tab active">
+    ✔️ Completadas <span class="tab-badge">{{ completed_count }}</span>
+  </a>
+</nav>
+{% endblock %}
 
 {% block content %}
 
   <section>
     <div class="section-toolbar">
       <div>
-        <h2>Tareas Completadas</h2>
-        <span style="font-size: 16px; color: #444444;">{{ completed_tasks|length }} tarea(s) en historial</span>
+        <h2>Historial de Completadas</h2>
+        <span style="font-size: 16px; color: #444444;">{{ completed_tasks|length }} tarea(s) finalizada(s)</span>
       </div>
       {% if completed_tasks %}
       <form action="/tasks/archive-completed" method="POST">
@@ -25,7 +37,7 @@
         <div class="task-lead">
           <!-- Checkbox marcado: al presionar, reabre la tarea -->
           <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
-            <input type="hidden" name="redirect_to" value="/completed">
+            <input type="hidden" name="redirect_to" value="/tasks/completed">
             <button type="submit" class="btn-checkbox" title="Reabrir y mover a pendientes" aria-label="Reabrir tarea">
               <span class="checkbox-square checked">✔</span>
             </button>
@@ -52,11 +64,11 @@
 
         <div class="task-actions">
           <form class="inline" action="/tasks/{{ task.id }}/toggle" method="POST">
-            <input type="hidden" name="redirect_to" value="/completed">
+            <input type="hidden" name="redirect_to" value="/tasks/completed">
             <button type="submit" class="btn btn-sm" title="Reabrir tarea">↩ Reabrir</button>
           </form>
           <form class="inline" action="/tasks/{{ task.id }}/delete" method="POST">
-            <input type="hidden" name="redirect_to" value="/completed">
+            <input type="hidden" name="redirect_to" value="/tasks/completed">
             <button type="submit" class="btn-delete" title="Borrar definitivamente" aria-label="Borrar tarea">✖</button>
           </form>
         </div>

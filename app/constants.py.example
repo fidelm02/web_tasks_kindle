@@ -1,0 +1,21 @@
+"""Configuration template for sensitive credentials.
+
+Rename or copy this file to 'constants.py' in the 'app/' directory
+or the project root and enter your credentials. This template is safe
+to commit to version control.
+"""
+
+from __future__ import annotations
+
+import os
+
+CLICKUP_API_TOKEN: str = os.getenv("CLICKUP_API_TOKEN", "")
+CLICKUP_TEAM_ID: str = os.getenv("CLICKUP_TEAM_ID", "")
+CLICKUP_LIST_ID: str = os.getenv("CLICKUP_LIST_ID", "")
+CLICKUP_BACKLOG_LIST_ID: str = os.getenv(
+    "CLICKUP_BACKLOG_LIST_ID", "901322014973"
+)
+CLICKUP_USER_ID: str = os.getenv("CLICKUP_USER_ID", "")
+CLICKUP_API_BASE_URL: str = os.getenv(
+    "CLICKUP_API_BASE_URL", "https://api.clickup.com/api/v2"
+)

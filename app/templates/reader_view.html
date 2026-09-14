@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}{{ doc.title }} - Kindle Scribe{% endblock %}
+{% block page_heading %}Lectura{% endblock %}
+
+{% block nav %}
+<div style="display: flex; gap: 10px; margin-top: 8px;">
+  <a href="/lecturas" class="btn btn-sm" style="font-size: 17px;">
+    ← Volver a Lecturas
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<article class="reader-article">
+  {{ doc.html_content | safe }}
+</article>
+
+<div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #000000; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+  <a href="/lecturas" class="btn">
+    ← Volver al catálogo
+  </a>
+  <a href="/" class="btn btn-primary">
+    ⌂ Volver a Inicio
+  </a>
+</div>
+{% endblock %}
