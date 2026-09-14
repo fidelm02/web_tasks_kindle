@@ -4,7 +4,7 @@ A minimalist, high-contrast local task management web application custom-tailore
 
 ---
 
-## 🎯 Objective
+## Objective
 
 The primary objective of **Kindle Tasks** is to provide an effortless, distraction-free task management experience on Kindle devices within a local home or office network (LAN).
 
@@ -18,7 +18,7 @@ Kindle Tasks solves this by offering:
 
 ---
 
-## ✨ Features
+## Features
 
 - **Pending & Completed Views**: Organize pending tasks by priority and due date, with a dedicated view for completed and archived items.
 - **Priority Indicators**: Categorize tasks into High, Medium, and Low priorities with clear, bold indicators.
@@ -28,7 +28,7 @@ Kindle Tasks solves this by offering:
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -41,7 +41,7 @@ Kindle Tasks solves this by offering:
 ### Running the Server
 
 Clone the repository and run the single launcher script:
-
+S
 ```bash
 git clone git@github.com:fidelm02/web_tasks_kindle.git
 cd web_tasks_kindle
@@ -62,17 +62,9 @@ python3 run.py
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Backend**: Python, [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/)
 - **Templating**: [Jinja2](https://jinja.palletsprojects.com/)
 - **Persistence**: Atomic file-locked JSON storage (`data/tasks_db.json`)
 - **Styling**: Pure CSS (zero framework overhead, optimized for monochrome screens)
-
----
-
-## 👤 Author
-
-**Fidel Moreno Miranda**  
-Email: [fidelm02@gmail.com](mailto:fidelm02@gmail.com)  
-GitHub: [@fidelm02](https://github.com/fidelm02)
