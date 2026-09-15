@@ -96,6 +96,7 @@ def send_document_to_kindle(file_path: Path) -> tuple[bool, str]:
     )
 
     try:
+        print(f"[EMAIL] Preparando envío a Kindle: {file_path.name} -> {recipient}", flush=True)
         data = file_path.read_bytes()
         msg.add_attachment(
             data,
@@ -104,22 +105,28 @@ def send_document_to_kindle(file_path: Path) -> tuple[bool, str]:
             filename=file_path.name,
         )
 
+        print(f"[EMAIL] Conectando a smtp.gmail.com:465 (SSL) con remitente {sender}...", flush=True)
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
+            print(f"[EMAIL] Enviando credenciales de autenticación...", flush=True)
             s.login(sender, app_pwd)
+            print(f"[EMAIL] Autenticación OK. Enviando mensaje...", flush=True)
             s.send_message(msg)
 
+        print(f"[EMAIL] Envío exitoso a {recipient}", flush=True)
         return (
             True,
             f"Archivo enviado correctamente a {recipient}. "
             "Amazon lo procesará en breve.",
         )
-    except smtplib.SMTPAuthenticationError:
+    except smtplib.SMTPAuthenticationError as auth_exc:
+        print(f"[EMAIL ERROR] Error de autenticación SMTP: {auth_exc}", flush=True)
         return (
             False,
-            "Error de autenticación en Gmail. Asegúrate de usar una "
+            f"Error de autenticación en Gmail: {auth_exc}. Asegúrate de usar una "
             "'Contraseña de aplicación' de 16 caracteres de Google.",
         )
     except Exception as exc:
+        print(f"[EMAIL ERROR] Excepción al enviar correo: {type(exc).__name__}: {exc}", flush=True)
         return False, f"Error al enviar correo: {exc}"
 
 
@@ -170,17 +177,25 @@ def send_project_report(
         )
 
     try:
+        print(f"[EMAIL] Preparando reporte '{subject}' para: {clean_recipients}", flush=True)
+        print(f"[EMAIL] Remitente: {sender}, Adjuntos PDF: {len(pdf_attachments)}", flush=True)
+        print(f"[EMAIL] Conectando a smtp.gmail.com:465 (SSL)...", flush=True)
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=25) as s:
+            print(f"[EMAIL] Intentando autenticación SMTP para {sender}...", flush=True)
             s.login(sender, app_pwd)
+            print(f"[EMAIL] Autenticación OK. Enviando reporte...", flush=True)
             s.send_message(msg)
+            print(f"[EMAIL] Reporte enviado exitosamente por SMTP!", flush=True)
 
         recipients_str = ", ".join(clean_recipients)
         return True, f"Reporte enviado exitosamente a {recipients_str}."
-    except smtplib.SMTPAuthenticationError:
+    except smtplib.SMTPAuthenticationError as auth_exc:
+        print(f"[EMAIL ERROR] Error de autenticación SMTP: {auth_exc}", flush=True)
         return (
             False,
-            "Error de autenticación en Gmail. Verifica la contraseña "
+            f"Error de autenticación en Gmail: {auth_exc}. Verifica la contraseña "
             "de aplicación en app/constants.py.",
         )
     except Exception as exc:
+        print(f"[EMAIL ERROR] Excepción al enviar reporte: {type(exc).__name__}: {exc}", flush=True)
         return False, f"Error al enviar reporte: {exc}"

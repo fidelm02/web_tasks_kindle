@@ -103,9 +103,9 @@
   </section>
   {% else %}
 
-  <!-- SECCIONES PERSONALIZADAS / PROYECTOS (COLAPSABLES, CON ESTADOS Y BOTÓN DE CORREO) -->
-  <details open class="home-section custom-section" style="border: 2px solid #000000; margin-bottom: 20px;">
-    <summary class="home-section-header" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 10px 14px; background-color: #F8F8F8;">
+  <!-- SECCIONES PERSONALIZADAS / PROYECTOS (A LA MISMA ALTURA DE CASA, LAU Y FIDEL, CON ESTADOS Y BOTÓN DE CORREO) -->
+  <section class="home-section custom-section" style="border: 2px solid #000000; margin-bottom: 20px;">
+    <div class="home-section-header" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background-color: #F8F8F8; border-bottom: 2px solid #000000;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="display: inline-flex; align-items: center;">
           {{ sec.icon_svg | safe }}
@@ -114,14 +114,14 @@
       </div>
 
       <!-- BOTONES COMPLETAMENTE A LA DERECHA: EMAIL, COMPLETAR, ARCHIVAR -->
-      <div style="display: flex; align-items: center; gap: 6px;" onclick="event.stopPropagation();">
+      <div style="display: flex; align-items: center; gap: 6px;">
         <a
           href="/sections/{{ sec.id }}/email"
           class="sec-action-icon-btn"
           title="Generar y Enviar reporte por correo con PDF"
           style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid #000000; background-color: #FFFFFF; color: #000000; text-decoration: none;"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
             <polyline points="22,6 12,13 2,6"/>
           </svg>
@@ -151,7 +151,7 @@
           </button>
         </form>
       </div>
-    </summary>
+    </div>
 
     <div class="home-section-body" style="padding: 12px 14px;">
       {% if sec.description %}
@@ -194,7 +194,7 @@
       </a>
       {% endif %}
     </div>
-  </details>
+  </section>
   {% endif %}
 
   {% endfor %}
@@ -235,11 +235,11 @@
     background-color: #000000 !important;
     color: #FFFFFF !important;
   }
+  .sec-action-icon-btn svg {
+    pointer-events: none;
+  }
   .sec-action-icon-btn:active svg {
     stroke: #FFFFFF !important;
-  }
-  details.custom-section summary::-webkit-details-marker {
-    display: none;
   }
 </style>
 {% endblock %}
