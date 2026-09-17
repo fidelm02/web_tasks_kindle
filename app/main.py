@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.templates import templates
 from app.routers import (
+    ai_router,
     clickup_router,
     home_router,
     reader_router,
@@ -31,6 +32,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Registro ordenado de enrutadores (estáticos antes que dinámicos)
 app.include_router(home_router)
+app.include_router(ai_router)
 app.include_router(reports_router)
 app.include_router(clickup_router)
 app.include_router(tasks_router)

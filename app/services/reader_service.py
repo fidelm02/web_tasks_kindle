@@ -390,3 +390,76 @@ def save_uploaded_document(
         return True, f"Archivo '{safe_name}' subido a '{folder_label}'."
     except OSError as exc:
         return False, f"Error al guardar archivo: {exc}"
+
+
+def save_generated_document(
+    filename: str,
+    content: str,
+    subfolder: str = "",
+    section: str = "default",
+) -> tuple[bool, str, Path | None]:
+    """Guarda un documento generado por IA en la sección y categoría correspondiente.
+
+    Args:
+        filename: Nombre del archivo .md (ej: 'Ciencia - Teoria Cuantica.md').
+        content: Contenido Markdown completo con encabezado.
+        subfolder: Subcarpeta o categoría (ej: 'Ciencia').
+        section: Identificador de la sección (ej: 'fidel', 'lau', 'casa').
+
+    Returns:
+        tuple[bool, str, Path | None]: (éxito, mensaje, ruta_absoluta_o_None)
+    """
+    directory: Path = _ensure_docs_dir(section)
+    clean_name = Path(filename).name.strip()
+    if not clean_name:
+        clean_name = "Documento_IA.md"
+    if not clean_name.lower().endswith(".md"):
+        clean_name += ".md"
+
+    target_dir = directory
+    safe_folder = (
+        subfolder.strip()
+        .strip("/\\")
+        .replace("..", "")
+    )
+    if safe_folder and safe_folder.lower() not in ("archive", "general", "."):
+        target_dir = directory / safe_folder
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    dest_path = target_dir / clean_name
+    try:
+        dest_path.write_text(content, encoding="utf-8")
+        folder_label = safe_folder if safe_folder else "General"
+        return True, f"Lectura guardada en '{folder_label}/{clean_name}'.", dest_path
+    except OSError as exc:
+        return False, f"Error al guardar lectura: {exc}", None
+
+
+def delete_document(
+    rel_path: str, section: str = "default"
+) -> tuple[bool, str]:
+    """Elimina permanentemente un documento del directorio de la sección.
+
+    Args:
+        rel_path: Ruta relativa del documento dentro de la sección docs.
+        section: Identificador de la sección (e.g. 'default', 'lau', 'fidel').
+
+    Returns:
+        tuple[bool, str]: (éxito, mensaje)
+    """
+    file_path = resolve_document_path(rel_path, section=section)
+    if not file_path:
+        return False, "Documento no encontrado o ruta no válida."
+
+    directory: Path = _ensure_docs_dir(section).resolve()
+    try:
+        file_path.resolve().relative_to(directory)
+    except ValueError:
+        return False, "Ruta fuera del directorio de documentos permitido."
+
+    try:
+        file_name = file_path.name
+        file_path.unlink()
+        return True, f"Documento '{file_name}' eliminado permanentemente."
+    except OSError as exc:
+        return False, f"Error al eliminar documento: {exc}"

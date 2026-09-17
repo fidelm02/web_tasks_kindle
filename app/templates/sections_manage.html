@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Proyectos y Secciones - Kindle Scribe{% endblock %}
+{% block page_heading %}Proyectos y Secciones{% endblock %}
+
+{% block header %}
+<header class="app-header">
+  <div class="header-branding" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <div class="header-title-group" style="display: flex; align-items: center; gap: 12px;">
+      <a href="/" class="btn-home" title="Volver al Hub Principal">⌂ Hub</a>
+      <h1>Proyectos y Secciones</h1>
+      <span class="device-tag">Kindle Scribe</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+      <a href="/sections/status/completed" class="header-mini-btn" title="Ver proyectos completados">
+        Completados{% if completed_count > 0 %} <span class="badge-count">{{ completed_count }}</span>{% endif %}
+      </a>
+      <a href="/sections/status/archived" class="header-mini-btn" title="Ver proyectos archivados">
+        Archivados{% if archived_count > 0 %} <span class="badge-count">{{ archived_count }}</span>{% endif %}
+      </a>
+      <a href="/sections/new" class="header-mini-btn" style="background-color: #000000; color: #FFFFFF; font-weight: 900;" title="Crear nueva sección o proyecto">
+        + Sección
+      </a>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% if msg %}
+<div class="alert alert-success" style="margin-bottom: 20px;">
+  {{ msg }}
+</div>
+{% endif %}
+{% if err %}
+<div class="alert alert-error" style="margin-bottom: 20px;">
+  {{ err }}
+</div>
+{% endif %}
+
+<div class="portal-grid">
+  {% for sec in sections %}
+  
+  {% if sec.is_system %}
+  <!-- SECCIONES FIJAS DEL SISTEMA (CASA, LAU, FIDEL) -->
+  <section class="home-section" style="border: 2px solid #000000; margin-bottom: 20px;">
+    <div class="home-section-header" style="display: flex; align-items: center; padding: 10px 14px; background-color: #F8F8F8; border-bottom: 2px solid #000000;">
+      <span style="display: inline-flex; align-items: center; margin-right: 8px;">
+        {{ sec.icon_svg | safe }}
+      </span>
+      <span style="font-weight: bold; font-size: 20px;">{{ sec.name }}</span>
+    </div>
+    <div class="home-section-body" style="padding: 12px 14px;">
+      {% if sec.description %}
+      <p style="font-size: 15px; color: #555555; margin: 0 0 12px 0;">
+        {{ sec.description }}
+      </p>
+      {% endif %}
+
+      {% if sec.has_clickup %}
+      <a href="/clickup" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"></path>
+          </svg>
+          ClickUp (Trabajo)
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">Sprint / Backlog</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if sec.has_tasks %}
+      <a href="{{ sec.tasks_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          {{ sec.tasks_label or ('Pendientes de ' ~ sec.name) }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.pending_count }} activas</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if sec.has_docs %}
+      <a href="{{ sec.docs_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          {{ sec.docs_label or 'Documentos y Lecturas' }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.docs_count }} archivo(s)</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+  {% else %}
+
+  <!-- SECCIONES PERSONALIZADAS / PROYECTOS -->
+  <section class="home-section custom-section" style="border: 2px solid #000000; margin-bottom: 20px;">
+    <div class="home-section-header" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background-color: #F8F8F8; border-bottom: 2px solid #000000;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="display: inline-flex; align-items: center;">
+          {{ sec.icon_svg | safe }}
+        </span>
+        <span style="font-weight: bold; font-size: 20px;">{{ sec.name }}</span>
+      </div>
+
+      <!-- ACCIONES: EMAIL, COMPLETAR, ARCHIVAR -->
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <a
+          href="/sections/{{ sec.id }}/email"
+          class="sec-action-icon-btn"
+          title="Generar y Enviar reporte por correo con PDF"
+          style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 2px solid #000000; background-color: #FFFFFF; color: #000000; text-decoration: none;"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </a>
+
+        <form method="POST" action="/sections/{{ sec.id }}/status" style="display: inline; margin: 0;">
+          <input type="hidden" name="new_status" value="completed">
+          <button
+            type="submit"
+            class="sec-action-text-btn"
+            title="Marcar proyecto como completado"
+            style="border: 2px solid #000000; background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 14px; padding: 0 10px; height: 42px; cursor: pointer;"
+          >
+            ✓ Completar
+          </button>
+        </form>
+
+        <form method="POST" action="/sections/{{ sec.id }}/status" style="display: inline; margin: 0;" onsubmit="return confirm('¿Archivar esta sección?\nSe ocultará y podrás verla en Archivados.');">
+          <input type="hidden" name="new_status" value="archived">
+          <button
+            type="submit"
+            class="sec-action-text-btn"
+            title="Archivar sección"
+            style="border: 2px solid #000000; background-color: #FFFFFF; color: #000000; font-weight: bold; font-size: 14px; padding: 0 10px; height: 42px; cursor: pointer;"
+          >
+            📦 Archivar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="home-section-body" style="padding: 12px 14px;">
+      {% if sec.description %}
+      <p style="font-size: 15px; color: #555555; margin: 0 0 12px 0;">
+        {{ sec.description }}
+      </p>
+      {% endif %}
+
+      {% if sec.has_tasks %}
+      <a href="{{ sec.tasks_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          {{ sec.tasks_label or ('Pendientes de ' ~ sec.name) }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.pending_count }} activas</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if sec.has_docs %}
+      <a href="{{ sec.docs_url }}" class="portal-link-btn">
+        <span style="display: flex; align-items: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 10px;">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+          {{ sec.docs_label or 'Documentos y Lecturas' }}
+        </span>
+        <div class="portal-link-meta">
+          <span class="tab-badge">{{ sec.docs_count }} archivo(s)</span>
+          <span style="font-size: 24px;">→</span>
+        </div>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% endfor %}
+</div>
+
+<div style="margin-top: 30px; text-align: center;">
+  <a href="/" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+    ⌂ Volver al Hub Principal
+  </a>
+</div>
+
+<style>
+  .header-mini-btn {
+    border: 2px solid #000000;
+    background-color: #FFFFFF;
+    color: #000000;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 10px;
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .header-mini-btn:active {
+    background-color: #000000;
+    color: #FFFFFF;
+  }
+  .badge-count {
+    background-color: #000000;
+    color: #FFFFFF;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 900;
+  }
+  .sec-action-icon-btn:active,
+  .sec-action-text-btn:active {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+  }
+  .sec-action-icon-btn svg {
+    pointer-events: none;
+  }
+  .sec-action-icon-btn:active svg {
+    stroke: #FFFFFF !important;
+  }
+</style>
+{% endblock %}

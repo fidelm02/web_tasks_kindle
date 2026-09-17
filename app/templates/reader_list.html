@@ -137,7 +137,7 @@
             </button>
           </form>
 
-          <!-- Archivar / Eliminar a carpeta archive con timestamp -->
+          <!-- Archivar a carpeta archive con timestamp -->
           <form class="inline" action="{{ base_url | default('/lecturas') }}/archive/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Archivar este documento?\nSe moverá a la carpeta archive con fecha y hora.');">
             <button type="submit" class="btn btn-sm" title="Mover a la carpeta archive con fecha y hora" style="border-color: #777777; color: #444444;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
@@ -146,6 +146,19 @@
                 <line x1="10" y1="12" x2="14" y2="12"></line>
               </svg>
               Archivar
+            </button>
+          </form>
+
+          <!-- Eliminar permanentemente -->
+          <form class="inline" action="{{ base_url | default('/lecturas') }}/delete/{{ doc.rel_path }}" method="POST" onsubmit="return confirm('¿Eliminar permanentemente este documento?\nEsta acción no se puede deshacer.');">
+            <button type="submit" class="btn btn-sm" title="Eliminar definitivamente" style="border-color: #000000; color: #000000; font-weight: bold;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+              Eliminar
             </button>
           </form>
         </div>

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app import storage
+from app.core.contexts import get_all_contexts
 from app.core.helpers import safe_redirect
 from app.core.templates import templates
 from app.services import reader_service, section_service
@@ -21,7 +22,7 @@ def home_portal(
     msg: str | None = None,
     err: str | None = None,
 ):
-    """Render the central home portal with all active sections.
+    """Render the central Kindle Hub with AI generator and quick access matrix.
 
     Args:
         request: FastAPI HTTP request instance.
@@ -66,9 +67,82 @@ def home_portal(
 
         sections_view.append(item)
 
+    total_docs_count = sum(s.get("docs_count", 0) for s in sections_view)
+    total_pending_count = sum(s.get("pending_count", 0) for s in sections_view)
+    doc_sections = [s for s in sections_view if s.get("has_docs")]
+    contexts = get_all_contexts()
+
     return templates.TemplateResponse(
         request,
         "home.html",
+        {
+            "sections": sections_view,
+            "doc_sections": doc_sections,
+            "contexts": contexts,
+            "total_docs_count": total_docs_count,
+            "total_pending_count": total_pending_count,
+            "archived_count": archived_count,
+            "completed_count": completed_count,
+            "msg": msg,
+            "err": err,
+        },
+    )
+
+
+@router.get("/sections")
+def sections_management_view(
+    request: Request,
+    msg: str | None = None,
+    err: str | None = None,
+):
+    """Render full project and section management view.
+
+    Args:
+        request: FastAPI HTTP request instance.
+        msg: Optional success notification query parameter.
+        err: Optional error notification query parameter.
+
+    Returns:
+        TemplateResponse: Rendered sections manage template.
+    """
+    sections = section_service.get_active_sections()
+    archived_count = len(
+        section_service.get_sections_by_status("archived")
+    )
+    completed_count = len(
+        section_service.get_sections_by_status("completed")
+    )
+    sections_view: list[dict[str, Any]] = []
+
+    for sec in sections:
+        item = dict(sec)
+        sec_id = sec["id"]
+        item["icon_svg"] = section_service.get_icon_svg(
+            sec.get("icon", "folder")
+        )
+
+        if sec.get("has_tasks"):
+            pending = storage.get_pending_tasks(scope=sec_id)
+            item["pending_count"] = len(pending)
+            if sec_id == "casa":
+                item["tasks_url"] = "/tasks"
+            else:
+                item["tasks_url"] = f"/{sec_id}/tasks"
+
+        if sec.get("has_docs"):
+            item["docs_count"] = reader_service.count_all_documents(
+                section=sec_id
+            )
+            if sec_id in ("fidel", "default"):
+                item["docs_url"] = "/lecturas"
+            else:
+                item["docs_url"] = f"/{sec_id}/lecturas"
+
+        sections_view.append(item)
+
+    return templates.TemplateResponse(
+        request,
+        "sections_manage.html",
         {
             "sections": sections_view,
             "archived_count": archived_count,

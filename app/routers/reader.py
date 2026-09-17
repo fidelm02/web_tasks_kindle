@@ -215,6 +215,31 @@ def handle_archive_document(
     )
 
 
+def handle_delete_document(
+    file_path: str,
+    section: str,
+    redirect_url: str,
+) -> RedirectResponse:
+    """Permanently delete a document and redirect back.
+
+    Args:
+        file_path: Relative path to document.
+        section: Section identifier string.
+        redirect_url: Destination URL.
+
+    Returns:
+        RedirectResponse: Redirect with notification.
+    """
+    success, message = reader_service.delete_document(
+        file_path, section=section
+    )
+    param = "msg" if success else "err"
+    encoded = urllib.parse.quote(message)
+    return RedirectResponse(
+        f"{redirect_url}?{param}={encoded}", status_code=303
+    )
+
+
 # ============================================================================
 # Rutas de Lecturas para Fidel / Biblioteca Principal (/lecturas)
 # ============================================================================
@@ -281,6 +306,16 @@ async def upload_document(
 def archive_document(file_path: str) -> RedirectResponse:
     """Move a document to Fidel archive directory with timestamp."""
     return handle_archive_document(
+        file_path=file_path,
+        section="fidel",
+        redirect_url="/lecturas",
+    )
+
+
+@router.post("/lecturas/delete/{file_path:path}")
+def delete_document(file_path: str) -> RedirectResponse:
+    """Permanently delete a document from Fidel library."""
+    return handle_delete_document(
         file_path=file_path,
         section="fidel",
         redirect_url="/lecturas",
@@ -364,6 +399,19 @@ def section_archive_document(
 ) -> RedirectResponse:
     """Move document to section archive directory with timestamp."""
     return handle_archive_document(
+        file_path=file_path,
+        section=section,
+        redirect_url=f"/{section}/lecturas",
+    )
+
+
+@router.post("/{section}/lecturas/delete/{file_path:path}")
+def section_delete_document(
+    section: str,
+    file_path: str,
+) -> RedirectResponse:
+    """Permanently delete document from section library."""
+    return handle_delete_document(
         file_path=file_path,
         section=section,
         redirect_url=f"/{section}/lecturas",
