@@ -44,6 +44,8 @@ const logger = pino({ level: 'warn' });
 
 // Cache de nombres de grupos para evitar consultas repetitivas
 const groupMetaCache = new Map();
+// Cache de IDs de mensajes enviados por el bot para evitar bucles
+const botSentMsgIds = new Set();
 
 async function notifyPortalStatus(connected, qrCode = null, phone = null) {
   try {
@@ -128,8 +130,15 @@ async function connectToWhatsApp() {
     if (type !== 'notify') return;
 
     for (const msg of messages) {
-      // Ignorar mensajes enviados por el bot mismo si no vienen de la app móvil
       if (!msg.message) continue;
+
+      // Ignorar mensajes de protocolo, actualizaciones de estado y reacciones
+      if (msg.message.protocolMessage || msg.message.reactionMessage) continue;
+
+      const msgId = msg.key?.id;
+      if (msgId && botSentMsgIds.has(msgId)) {
+        continue;
+      }
 
       const remoteJid = msg.key.remoteJid || '';
       const isGroup = remoteJid.endsWith('@g.us');
@@ -142,10 +151,10 @@ async function connectToWhatsApp() {
         } else {
           try {
             const meta = await sock.groupMetadata(remoteJid);
-            groupName = meta.subject || '';
-            groupMetaCache.set(remoteJid, groupName);
+            groupName = meta?.subject || '';
+            if (groupName) groupMetaCache.set(remoteJid, groupName);
           } catch (e) {
-            continue;
+            console.warn(`[WhatsApp] Metadata del grupo ${remoteJid} pendiente...`);
           }
         }
 
@@ -161,12 +170,28 @@ async function connectToWhatsApp() {
       const senderPhone = (msg.key.participant || remoteJid).split('@')[0];
       const pushName = msg.pushName || 'Usuario';
 
-      console.log(`[WhatsApp] Mensaje detectado en grupo "${groupName}" de ${pushName} (${senderPhone})`);
-
       // Detectar tipo de contenido: Audio o Texto
       const msgContent = msg.message;
       const isAudio = Boolean(msgContent.audioMessage);
       const isText = Boolean(msgContent.conversation || msgContent.extendedTextMessage?.text);
+
+      if (!isAudio && !isText) {
+        continue;
+      }
+
+      console.log(`[WhatsApp] Mensaje detectado en grupo "${groupName}" de ${pushName} (${senderPhone}) [Tipo: ${isAudio ? 'Audio' : 'Texto'}]`);
+
+      // 1. REACCIÓN INMEDIATA: Emoji de "Procesando" (🎧 para audios, ⏳ para texto)
+      try {
+        await sock.sendMessage(remoteJid, {
+          react: {
+            text: isAudio ? '🎧' : '⏳',
+            key: msg.key,
+          },
+        });
+      } catch (rErr) {
+        console.warn('[WhatsApp] Error al enviar reacción de inicio:', rErr.message);
+      }
 
       let payload = {
         sender_name: pushName,
@@ -188,13 +213,13 @@ async function connectToWhatsApp() {
           payload.audio_mimetype = msgContent.audioMessage.mimetype || 'audio/ogg; codecs=opus';
         } catch (downloadErr) {
           console.error('[WhatsApp] Error al descargar audio:', downloadErr);
+          try {
+            await sock.sendMessage(remoteJid, { react: { text: '❌', key: msg.key } });
+          } catch (e) {}
           continue;
         }
-      } else if (isText) {
-        payload.text_content = msgContent.conversation || msgContent.extendedTextMessage?.text || '';
       } else {
-        // Tipo de mensaje no manejado (sticker, imagen, etc.)
-        continue;
+        payload.text_content = msgContent.conversation || msgContent.extendedTextMessage?.text || '';
       }
 
       // Enviar al webhook de FastAPI para interpretación con Gemini y ejecución
@@ -205,11 +230,30 @@ async function connectToWhatsApp() {
 
         if (result && result.reply) {
           console.log(`[WhatsApp] Respondiendo al grupo: "${result.reply}"`);
-          await sock.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
+          
+          // 2. REACCIÓN DE ÉXITO: Cambiar emoji a ✅
+          try {
+            await sock.sendMessage(remoteJid, {
+              react: {
+                text: '✅',
+                key: msg.key,
+              },
+            });
+          } catch (rErr) {}
+
+          const sent = await sock.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
+          if (sent?.key?.id) {
+            botSentMsgIds.add(sent.key.id);
+            if (botSentMsgIds.size > 200) {
+              const first = botSentMsgIds.values().next().value;
+              botSentMsgIds.delete(first);
+            }
+          }
         }
       } catch (webhookErr) {
         console.error('[WhatsApp] Error al invocar webhook:', webhookErr.message);
         try {
+          await sock.sendMessage(remoteJid, { react: { text: '❌', key: msg.key } });
           await sock.sendMessage(
             remoteJid,
             { text: '⚠️ Ocurrió un error al procesar el audio con la IA. Por favor intenta de nuevo.' },
