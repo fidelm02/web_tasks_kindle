@@ -1266,8 +1266,13 @@ function toggleStatusFilterDropdown(event) {
   if (event) event.stopPropagation();
   const wrapper = document.getElementById('status-filter-component');
   if (wrapper) {
-    wrapper.classList.toggle('open');
-    if (wrapper.classList.contains('open')) {
+    const isOpen = wrapper.classList.toggle('open');
+    const bar = wrapper.closest('.control-bar');
+    if (bar) {
+      if (isOpen) bar.classList.add('has-open-dropdown');
+      else bar.classList.remove('has-open-dropdown');
+    }
+    if (isOpen) {
       updateFilterPopoverCounts();
     }
   }
@@ -1277,6 +1282,8 @@ function closeStatusFilterDropdown() {
   const wrapper = document.getElementById('status-filter-component');
   if (wrapper) {
     wrapper.classList.remove('open');
+    const bar = wrapper.closest('.control-bar');
+    if (bar) bar.classList.remove('has-open-dropdown');
   }
 }
 
@@ -1546,6 +1553,8 @@ function initStatusFilter() {
     const wrapper = document.getElementById('status-filter-component');
     if (wrapper && !wrapper.contains(e.target)) {
       wrapper.classList.remove('open');
+      const bar = wrapper.closest('.control-bar');
+      if (bar) bar.classList.remove('has-open-dropdown');
     }
   });
 }

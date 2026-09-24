@@ -265,6 +265,13 @@ body {
   border-radius: var(--radius-lg);
   padding: 0.85rem 1.25rem;
   backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 45;
+}
+
+.control-bar.has-open-dropdown,
+.control-bar:has(.status-filter-wrapper.open) {
+  z-index: 95;
 }
 
 .scope-chips {
@@ -1084,6 +1091,11 @@ input:checked + .slider:before {
 .status-filter-wrapper {
   position: relative;
   display: inline-block;
+  z-index: 50;
+}
+
+.status-filter-wrapper.open {
+  z-index: 100;
 }
 
 .status-filter-btn {
@@ -1144,14 +1156,16 @@ input:checked + .slider:before {
   top: calc(100% + 8px);
   right: 0;
   min-width: 290px;
-  background: rgba(17, 24, 39, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  max-width: calc(100vw - 2rem);
+  background: #111827;
+  background: rgba(17, 24, 39, 0.98);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 20px 30px -10px rgba(0, 0, 0, 0.7);
   padding: 0.85rem;
-  z-index: 150;
+  z-index: 200;
   animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
