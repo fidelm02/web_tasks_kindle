@@ -468,15 +468,33 @@ def get_table_data(
     if stage and stage != "all":
         active = [t for t in active if t.get("stage") == stage]
 
-    # Ordenamiento
+    # Ordenamiento por cualquier columna
     reverse = order.lower() == "desc"
+    stage_rank = {"backlog": 1, "todo": 2, "in_progress": 3, "review": 4, "done": 5}
+    prio_order = {"urgente": 4, "alta": 3, "media": 2, "baja": 1}
+
     if sort_by == "priority":
-        prio_order = {"urgente": 4, "alta": 3, "media": 2, "baja": 1}
         active.sort(key=lambda t: prio_order.get((t.get("priority") or "").lower(), 0), reverse=reverse)
-    elif sort_by == "story_points":
+    elif sort_by in ("story_points", "sp"):
         active.sort(key=lambda t: float(t.get("story_points") or 0), reverse=reverse)
-    elif sort_by == "target_date":
-        active.sort(key=lambda t: t.get("target_date") or ("9999" if not reverse else ""), reverse=reverse)
+    elif sort_by in ("estimated_hours", "hours"):
+        active.sort(key=lambda t: float(t.get("estimated_hours") or 0), reverse=reverse)
+    elif sort_by == "stage":
+        active.sort(key=lambda t: stage_rank.get(t.get("stage", "todo"), 2), reverse=reverse)
+    elif sort_by == "code":
+        active.sort(key=lambda t: (t.get("code") or "").lower(), reverse=reverse)
+    elif sort_by == "scope":
+        active.sort(key=lambda t: (t.get("scope") or "").lower(), reverse=reverse)
+    elif sort_by in ("target_date", "date"):
+        def date_sort_key(t):
+            d = t.get("target_date")
+            tm = t.get("start_time") or ""
+            if not d:
+                return (0, "") if reverse else (1, "9999-99-99")
+            return (1, f"{d} {tm}") if reverse else (0, f"{d} {tm}")
+        active.sort(key=date_sort_key, reverse=reverse)
+    elif sort_by == "subtasks":
+        active.sort(key=lambda t: (t.get("subtasks_count") or 0, t.get("subtasks_completed") or 0), reverse=reverse)
     elif sort_by == "title":
         active.sort(key=lambda t: (t.get("title") or "").lower(), reverse=reverse)
     else:

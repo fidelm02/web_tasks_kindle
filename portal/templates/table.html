@@ -42,19 +42,29 @@
       <option value="Baja" {% if current_priority == 'Baja' %}selected{% endif %}>Baja</option>
     </select>
 
-    <select name="sort_by" class="select-filter" onchange="this.form.submit()" title="Ordenar listado">
-      <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Más Recientes</option>
-      <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Por Prioridad</option>
-      <option value="story_points" {% if sort_by == 'story_points' %}selected{% endif %}>Por Story Points</option>
-      <option value="target_date" {% if sort_by == 'target_date' %}selected{% endif %}>Por Fecha Límite</option>
-      <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Alfabético (Título)</option>
+    <select name="sort_by" class="select-filter" onchange="this.form.submit()" title="Ordenar listado por columna">
+      <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>📅 Más Recientes</option>
+      <option value="title" {% if sort_by == 'title' %}selected{% endif %}>🔤 Título (A-Z)</option>
+      <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>🔥 Prioridad</option>
+      <option value="stage" {% if sort_by == 'stage' %}selected{% endif %}>🚦 Etapa de Flujo</option>
+      <option value="story_points" {% if sort_by in ('story_points', 'sp') %}selected{% endif %}>⚡ Story Points</option>
+      <option value="estimated_hours" {% if sort_by in ('estimated_hours', 'hours') %}selected{% endif %}>⏱️ Horas Estimadas</option>
+      <option value="target_date" {% if sort_by in ('target_date', 'date') %}selected{% endif %}>📆 Fecha Límite</option>
+      <option value="code" {% if sort_by == 'code' %}selected{% endif %}>🏷️ Clave (ID)</option>
+      <option value="scope" {% if sort_by == 'scope' %}selected{% endif %}>📂 Espacio</option>
+      <option value="subtasks" {% if sort_by == 'subtasks' %}selected{% endif %}>✓ Subtareas</option>
+    </select>
+
+    <select name="order" class="select-filter" onchange="this.form.submit()" title="Dirección del orden">
+      <option value="desc" {% if order == 'desc' %}selected{% endif %}>Descendente (▼)</option>
+      <option value="asc" {% if order == 'asc' %}selected{% endif %}>Ascendente (▲)</option>
     </select>
   </form>
 </section>
 
 <!-- Summary Counter Bar -->
 <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.875rem; color:var(--text-secondary); padding: 0 0.25rem;">
-  <span>Mostrando <strong>{{ data.total_count }}</strong> tareas (Total: <strong>{{ data.total_sp }} SP</strong>)</span>
+  <span>Mostrando <strong>{{ data.total_count }}</strong> tareas (Total: <strong>{{ data.total_sp }} SP</strong>) &bull; <span style="font-size:0.8rem; color:var(--text-muted);">💡 Haz clic en los encabezados de columna para ordenar al instante</span></span>
   <div style="display:flex; gap:0.5rem;">
     <a href="/kanban?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Tablero Jira">
       <span>📊</span>
@@ -69,24 +79,81 @@
 
 <!-- Structured Table View -->
 <div class="table-container">
-  <table class="data-table">
+  <table class="data-table" id="pro-data-table" data-current-sort="{{ sort_by }}" data-current-order="{{ order }}">
     <thead>
       <tr>
-        <th style="width: 100px;">Clave</th>
-        <th>Título y Descripción</th>
-        <th style="width: 110px;">Espacio</th>
-        <th style="width: 140px;">Etapa</th>
-        <th style="width: 110px;">Prioridad</th>
-        <th style="width: 80px; text-align:center;">SP</th>
-        <th style="width: 90px; text-align:center;">Horas</th>
-        <th style="width: 160px;">Fecha & Bloqueo</th>
-        <th style="width: 90px; text-align:center;">Subtareas</th>
+        <th class="sortable-th" data-sort-key="code" style="width: 105px;" title="Clic para ordenar por Clave">
+          <div class="th-content">
+            <span>Clave</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th" data-sort-key="title" title="Clic para ordenar por Título">
+          <div class="th-content">
+            <span>Título y Descripción</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th" data-sort-key="scope" style="width: 110px;" title="Clic para ordenar por Espacio">
+          <div class="th-content">
+            <span>Espacio</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th" data-sort-key="stage" style="width: 140px;" title="Clic para ordenar por Etapa del Flujo">
+          <div class="th-content">
+            <span>Etapa</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th" data-sort-key="priority" style="width: 120px;" title="Clic para ordenar por Prioridad">
+          <div class="th-content">
+            <span>Prioridad</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th text-center" data-sort-key="sp" style="width: 85px; text-align:center;" title="Clic para ordenar por Story Points">
+          <div class="th-content">
+            <span>SP</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th text-center" data-sort-key="hours" style="width: 95px; text-align:center;" title="Clic para ordenar por Horas Estimadas">
+          <div class="th-content">
+            <span>Horas</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th" data-sort-key="date" style="width: 160px;" title="Clic para ordenar por Fecha Límite y Horas">
+          <div class="th-content">
+            <span>Fecha & Bloqueo</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
+        <th class="sortable-th text-center" data-sort-key="subtasks" style="width: 95px; text-align:center;" title="Clic para ordenar por Subtareas">
+          <div class="th-content">
+            <span>Subtareas</span>
+            <span class="sort-icon">↕</span>
+          </div>
+        </th>
         <th style="width: 170px; text-align:right;">Acciones</th>
       </tr>
     </thead>
     <tbody>
       {% for task in data.tasks %}
-      <tr class="table-row" id="table-row-{{ task.id }}">
+      <tr class="table-row" id="table-row-{{ task.id }}"
+          data-task-id="{{ task.id }}"
+          data-code="{{ task.code }}"
+          data-title="{{ task.title | lower }}"
+          data-scope="{{ task.scope }}"
+          data-stage="{{ task.stage }}"
+          data-priority="{{ task.priority }}"
+          data-priority-rank="{% if task.priority == 'Urgente' %}4{% elif task.priority == 'Alta' %}3{% elif task.priority == 'Media' %}2{% else %}1{% endif %}"
+          data-sp="{{ task.story_points or 0 }}"
+          data-hours="{{ task.estimated_hours or 0 }}"
+          data-date="{{ task.target_date or '' }}{% if task.start_time %}T{{ task.start_time }}{% endif %}"
+          data-subtasks="{{ task.subtasks_count or 0 }}"
+          data-created="{{ task.created_at or '' }}">
         <td>
           <span class="card-scope-badge" style="background:rgba(59,130,246,0.18); color:#93c5fd; font-weight:700;">
             {{ task.code }}

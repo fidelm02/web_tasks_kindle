@@ -161,6 +161,10 @@ async function handleQuickStageChange(selectElem) {
 
 // Quick Stage Select Change (Table View)
 async function handleTableStageChange(taskId, scope, newStage) {
+  const row = document.getElementById(`table-row-${taskId}`);
+  if (row) {
+    row.dataset.stage = newStage;
+  }
   try {
     const res = await fetch('/api/tasks/move', {
       method: 'POST',
@@ -1032,9 +1036,235 @@ async function createFromEstimation() {
   }
 }
 
+// Interactive Column Sorting for Table View
+const STAGE_ORDER_MAP = {
+  'backlog': 1,
+  'todo': 2,
+  'in_progress': 3,
+  'review': 4,
+  'done': 5
+};
+
+const PRIORITY_ORDER_MAP = {
+  'urgente': 4,
+  'alta': 3,
+  'media': 2,
+  'baja': 1
+};
+
+function initTableSorting() {
+  const table = document.getElementById('pro-data-table');
+  if (!table) return;
+
+  const headers = table.querySelectorAll('th.sortable-th');
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+
+  let currentSort = table.dataset.currentSort || 'created_at';
+  let currentOrder = (table.dataset.currentOrder || 'desc').toLowerCase();
+
+  // Normalize aliases
+  if (currentSort === 'story_points') currentSort = 'sp';
+  if (currentSort === 'estimated_hours') currentSort = 'hours';
+  if (currentSort === 'target_date') currentSort = 'date';
+
+  function updateHeaderIndicators(activeKey, activeOrder) {
+    headers.forEach(th => {
+      const key = th.dataset.sortKey;
+      const icon = th.querySelector('.sort-icon');
+      const label = th.querySelector('.th-content span:first-child')?.textContent?.trim() || 'Columna';
+      if (key === activeKey) {
+        th.classList.add('th-sorted');
+        if (icon) {
+          icon.textContent = activeOrder === 'asc' ? '▲' : '▼';
+        }
+        th.setAttribute('title', `Ordenado por ${label} (${activeOrder === 'asc' ? 'Ascendente ▲' : 'Descendente ▼'}). Haz clic para invertir.`);
+      } else {
+        th.classList.remove('th-sorted');
+        if (icon) {
+          icon.textContent = '↕';
+        }
+        th.setAttribute('title', `Haz clic para ordenar por ${label}`);
+      }
+    });
+  }
+
+  // Initial indicator setup
+  updateHeaderIndicators(currentSort, currentOrder);
+
+  headers.forEach(th => {
+    th.addEventListener('click', () => {
+      const sortKey = th.dataset.sortKey;
+      if (!sortKey) return;
+
+      let nextOrder = 'asc';
+      if (currentSort === sortKey) {
+        nextOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        // Natural starting direction:
+        // Priority, SP, Hours, Subtasks, Created: Descendente first (highest value first)
+        // Title, Code, Scope, Stage, Date: Ascendente first (A-Z, early date, first stages)
+        if (['priority', 'sp', 'hours', 'subtasks', 'created_at'].includes(sortKey)) {
+          nextOrder = 'desc';
+        } else {
+          nextOrder = 'asc';
+        }
+      }
+
+      currentSort = sortKey;
+      currentOrder = nextOrder;
+      table.dataset.currentSort = currentSort;
+      table.dataset.currentOrder = currentOrder;
+
+      const rows = Array.from(tbody.querySelectorAll('tr.table-row'));
+      if (rows.length <= 1) {
+        updateHeaderIndicators(currentSort, currentOrder);
+        return;
+      }
+
+      const multiplier = currentOrder === 'asc' ? 1 : -1;
+
+      rows.sort((a, b) => {
+        let valA, valB;
+
+        switch (sortKey) {
+          case 'code':
+            valA = (a.dataset.code || '').toLowerCase();
+            valB = (b.dataset.code || '').toLowerCase();
+            return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' }) * multiplier;
+
+          case 'title':
+            valA = (a.dataset.title || '').toLowerCase();
+            valB = (b.dataset.title || '').toLowerCase();
+            return valA.localeCompare(valB, undefined, { sensitivity: 'base' }) * multiplier;
+
+          case 'scope':
+            valA = (a.dataset.scope || '').toLowerCase();
+            valB = (b.dataset.scope || '').toLowerCase();
+            return valA.localeCompare(valB, undefined, { sensitivity: 'base' }) * multiplier;
+
+          case 'stage': {
+            valA = STAGE_ORDER_MAP[(a.dataset.stage || 'todo').toLowerCase()] || 2;
+            valB = STAGE_ORDER_MAP[(b.dataset.stage || 'todo').toLowerCase()] || 2;
+            const diff = (valA - valB) * multiplier;
+            if (diff === 0) {
+              const pA = parseInt(a.dataset.priorityRank || '0', 10);
+              const pB = parseInt(b.dataset.priorityRank || '0', 10);
+              return pB - pA;
+            }
+            return diff;
+          }
+
+          case 'priority': {
+            valA = parseInt(a.dataset.priorityRank || '0', 10) || (PRIORITY_ORDER_MAP[(a.dataset.priority || '').toLowerCase()] || 0);
+            valB = parseInt(b.dataset.priorityRank || '0', 10) || (PRIORITY_ORDER_MAP[(b.dataset.priority || '').toLowerCase()] || 0);
+            const diff = (valA - valB) * multiplier;
+            if (diff === 0) {
+              return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+            }
+            return diff;
+          }
+
+          case 'sp': {
+            valA = parseFloat(a.dataset.sp || '0') || 0;
+            valB = parseFloat(b.dataset.sp || '0') || 0;
+            const diff = (valA - valB) * multiplier;
+            if (diff === 0) {
+              return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+            }
+            return diff;
+          }
+
+          case 'hours': {
+            valA = parseFloat(a.dataset.hours || '0') || 0;
+            valB = parseFloat(b.dataset.hours || '0') || 0;
+            const diff = (valA - valB) * multiplier;
+            if (diff === 0) {
+              return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+            }
+            return diff;
+          }
+
+          case 'date': {
+            const dateA = a.dataset.date ? a.dataset.date.trim() : '';
+            const dateB = b.dataset.date ? b.dataset.date.trim() : '';
+            // Empty dates always push to the bottom
+            if (!dateA && !dateB) return 0;
+            if (!dateA) return 1;
+            if (!dateB) return -1;
+            return dateA.localeCompare(dateB) * multiplier;
+          }
+
+          case 'subtasks': {
+            valA = parseInt(a.dataset.subtasks || '0', 10) || 0;
+            valB = parseInt(b.dataset.subtasks || '0', 10) || 0;
+            const diff = (valA - valB) * multiplier;
+            if (diff === 0) {
+              return (a.dataset.title || '').localeCompare(b.dataset.title || '');
+            }
+            return diff;
+          }
+
+          default:
+            valA = a.dataset.created || '';
+            valB = b.dataset.created || '';
+            return valA.localeCompare(valB) * multiplier;
+        }
+      });
+
+      // Batch DOM append for instant responsiveness
+      const fragment = document.createDocumentFragment();
+      rows.forEach(r => {
+        r.classList.remove('table-row-sorted');
+        void r.offsetWidth;
+        r.classList.add('table-row-sorted');
+        fragment.appendChild(r);
+      });
+      tbody.appendChild(fragment);
+
+      // Update header indicators
+      updateHeaderIndicators(currentSort, currentOrder);
+
+      // Sync select boxes if present
+      const sortSelect = document.querySelector('select[name="sort_by"]');
+      if (sortSelect) {
+        for (let opt of sortSelect.options) {
+          if (
+            opt.value === currentSort ||
+            (currentSort === 'sp' && opt.value === 'story_points') ||
+            (currentSort === 'hours' && opt.value === 'estimated_hours') ||
+            (currentSort === 'date' && opt.value === 'target_date')
+          ) {
+            sortSelect.value = opt.value;
+            break;
+          }
+        }
+      }
+      const orderSelect = document.querySelector('select[name="order"]');
+      if (orderSelect) {
+        orderSelect.value = currentOrder;
+      }
+
+      // Sync URL parameters without page reload
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('sort_by', currentSort);
+        url.searchParams.set('order', currentOrder);
+        window.history.replaceState({}, '', url.toString());
+      } catch (err) {
+        // Ignored in restricted environments
+      }
+
+      const colName = th.querySelector('.th-content span:first-child')?.textContent?.trim() || 'Columna';
+      showToast(`Tabla ordenada por ${colName} (${currentOrder === 'asc' ? 'Ascendente ▲' : 'Descendente ▼'})`, 'success');
+    });
+  });
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   initKanbanDragAndDrop();
+  initTableSorting();
 
   // Close modals on click outside
   document.querySelectorAll('.modal-overlay').forEach(overlay => {

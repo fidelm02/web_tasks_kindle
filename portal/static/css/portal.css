@@ -1011,6 +1011,73 @@ input:checked + .slider:before {
   background: rgba(255, 255, 255, 0.03);
 }
 
+/* Sortable Table Headers */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+  position: relative;
+}
+
+.sortable-th:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  color: var(--text-primary) !important;
+}
+
+.sortable-th .th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.sortable-th.text-center .th-content {
+  justify-content: center;
+}
+
+.sortable-th.text-right .th-content {
+  justify-content: flex-end;
+}
+
+.sort-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
+  opacity: 0.5;
+  width: 14px;
+}
+
+.sortable-th:hover .sort-icon {
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+.sortable-th.th-sorted {
+  color: #93c5fd !important;
+  background: rgba(59, 130, 246, 0.12) !important;
+  border-bottom: 2px solid var(--accent-primary) !important;
+}
+
+.sortable-th.th-sorted .sort-icon {
+  opacity: 1;
+  color: #60a5fa;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+/* Subtle row animation on re-order */
+@keyframes rowFadeIn {
+  from { opacity: 0.35; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.table-row-sorted {
+  animation: rowFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* ==========================================================================
    Calendar & Time Blocking View Styles
    ========================================================================== */
