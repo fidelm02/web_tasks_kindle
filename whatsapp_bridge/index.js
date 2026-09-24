@@ -7,11 +7,11 @@
  * Recibe la respuesta interpretada por Gemini y la envía al grupo.
  */
 
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  downloadMediaMessage
-} from '@whiskeysockets/baileys';
+import baileys from '@whiskeysockets/baileys';
+const makeWASocket = typeof baileys.default === 'function' ? baileys.default : (typeof baileys === 'function' ? baileys : baileys.makeWASocket);
+const DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
+const useMultiFileAuthState = baileys.useMultiFileAuthState || baileys.default?.useMultiFileAuthState;
+const downloadMediaMessage = baileys.downloadMediaMessage || baileys.default?.downloadMediaMessage;
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import axios from 'axios';
