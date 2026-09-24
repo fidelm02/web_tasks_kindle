@@ -54,7 +54,7 @@ def _install_bridge_deps() -> None:
     node_modules = BRIDGE_DIR / "node_modules"
     if not node_modules.is_dir():
         print("Instalando dependencias de Node.js en whatsapp_bridge...")
-        subprocess.run(["npm", "install"], cwd=str(BRIDGE_DIR), check=True)
+        subprocess.run(["npm", "install", "--ignore-scripts"], cwd=str(BRIDGE_DIR), check=True)
 
 
 def start() -> None:
@@ -67,7 +67,7 @@ def start() -> None:
 
     with open(LOG_FILE, "a", encoding="utf-8") as log_f:
         proc = subprocess.Popen(
-            ["node", "index.js"],
+            ["node", "bootstrap.cjs"],
             cwd=str(BRIDGE_DIR),
             stdout=log_f,
             stderr=subprocess.STDOUT,

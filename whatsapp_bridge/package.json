@@ -2,13 +2,13 @@
   "name": "kindle-whatsapp-chismoso-bridge",
   "version": "1.0.0",
   "description": "WhatsApp Baileys multi-device bridge for Kindle Tasks Pro (Grupo Chismoso)",
-  "main": "index.js",
+  "main": "bootstrap.cjs",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bootstrap.cjs"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "axios": "^1.7.9",
     "pino": "^9.6.0",
     "qrcode-terminal": "^0.12.0"

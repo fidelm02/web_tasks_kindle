@@ -12,13 +12,13 @@ if (!globalThis.crypto) {
   globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto;
 }
 
-import baileys from '@whiskeysockets/baileys';
-const makeWASocket = typeof baileys.default === 'function' ? baileys.default : (typeof baileys === 'function' ? baileys : baileys.makeWASocket);
-const DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
-const useMultiFileAuthState = baileys.useMultiFileAuthState || baileys.default?.useMultiFileAuthState;
-const downloadMediaMessage = baileys.downloadMediaMessage || baileys.default?.downloadMediaMessage;
-const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || baileys.default?.fetchLatestBaileysVersion;
-const Browsers = baileys.Browsers || baileys.default?.Browsers;
+import makeWASocket, {
+  DisconnectReason,
+  useMultiFileAuthState,
+  downloadMediaMessage,
+  fetchLatestBaileysVersion,
+  Browsers,
+} from '@whiskeysockets/baileys';
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import axios from 'axios';
@@ -170,8 +170,22 @@ async function connectToWhatsApp() {
       const senderPhone = (msg.key.participant || remoteJid).split('@')[0];
       const pushName = msg.pushName || 'Usuario';
 
+      // Desenvolver mensajes efímeros o view-once si aplica
+      let msgContent = msg.message;
+      if (msgContent?.ephemeralMessage?.message) {
+        msgContent = msgContent.ephemeralMessage.message;
+      }
+      if (msgContent?.viewOnceMessage?.message) {
+        msgContent = msgContent.viewOnceMessage.message;
+      }
+      if (msgContent?.viewOnceMessageV2?.message) {
+        msgContent = msgContent.viewOnceMessageV2.message;
+      }
+      if (msgContent?.documentWithCaptionMessage?.message) {
+        msgContent = msgContent.documentWithCaptionMessage.message;
+      }
+
       // Detectar tipo de contenido: Audio o Texto
-      const msgContent = msg.message;
       const isAudio = Boolean(msgContent.audioMessage);
       const isText = Boolean(msgContent.conversation || msgContent.extendedTextMessage?.text);
 
@@ -241,7 +255,20 @@ async function connectToWhatsApp() {
             });
           } catch (rErr) {}
 
-          const sent = await sock.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
+          let sent = null;
+          try {
+            sent = await sock.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
+          } catch (qErr) {
+            console.warn('[WhatsApp] Envío con quote a grupo falló, intentando sin quote:', qErr.message);
+            try {
+              sent = await sock.sendMessage(remoteJid, { text: result.reply });
+            } catch (plainErr) {
+              console.warn('[WhatsApp] Envío a grupo falló, enviando directo al usuario:', plainErr.message);
+              const userJid = msg.key.participant || (senderPhone.includes('@') ? senderPhone : `${senderPhone}@s.whatsapp.net`);
+              sent = await sock.sendMessage(userJid, { text: `[Grupo Chismoso] ${result.reply}` });
+            }
+          }
+
           if (sent?.key?.id) {
             botSentMsgIds.add(sent.key.id);
             if (botSentMsgIds.size > 200) {
@@ -254,10 +281,11 @@ async function connectToWhatsApp() {
         console.error('[WhatsApp] Error al invocar webhook:', webhookErr.message);
         try {
           await sock.sendMessage(remoteJid, { react: { text: '❌', key: msg.key } });
+        } catch (e) {}
+        try {
           await sock.sendMessage(
             remoteJid,
-            { text: '⚠️ Ocurrió un error al procesar el audio con la IA. Por favor intenta de nuevo.' },
-            { quoted: msg }
+            { text: '⚠️ Ocurrió un error al procesar el audio con la IA. Por favor intenta de nuevo.' }
           );
         } catch (e) {}
       }
