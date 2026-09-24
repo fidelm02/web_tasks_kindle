@@ -76,14 +76,20 @@ def main() -> None:
         if err:
             print(f"       Git info/err: {err}")
 
-        # Sincronizar app/constants.py local hacia el servidor remoto vía SFTP
+        # Sincronizar app/constants.py y data/health_data.json hacia el servidor remoto vía SFTP
+        sftp = client.open_sftp()
         local_constants = REPO_ROOT / "app" / "constants.py"
         if local_constants.exists():
-            sftp = client.open_sftp()
             remote_constants = f"{repo_path}/app/constants.py"
             sftp.put(str(local_constants), remote_constants)
-            sftp.close()
             print("       Sincronizado app/constants.py vía SFTP exitosamente.")
+
+        local_health = REPO_ROOT / "data" / "health_data.json"
+        if local_health.exists():
+            remote_health = f"{repo_path}/data/health_data.json"
+            sftp.put(str(local_health), remote_health)
+            print("       Sincronizado data/health_data.json vía SFTP exitosamente.")
+        sftp.close()
 
         # Paso 3: Volver a iniciar los servicios
         print("[4/4] Iniciando los servicios en el servidor (Kindle 8080 y Portal 8090)...")
