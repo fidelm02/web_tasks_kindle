@@ -7,6 +7,11 @@
  * Recibe la respuesta interpretada por Gemini y la envía al grupo.
  */
 
+import nodeCrypto from 'node:crypto';
+if (!globalThis.crypto) {
+  globalThis.crypto = nodeCrypto.webcrypto || nodeCrypto;
+}
+
 import baileys from '@whiskeysockets/baileys';
 const makeWASocket = typeof baileys.default === 'function' ? baileys.default : (typeof baileys === 'function' ? baileys : baileys.makeWASocket);
 const DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
