@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from portal.routers import estimator, health, kanban, recurrent
+from portal.routers import estimator, health, kanban, recurrent, whatsapp
 from portal.services import recurrent_engine
 
 # Configurar logging
@@ -95,6 +95,7 @@ app.include_router(kanban.router)
 app.include_router(recurrent.router)
 app.include_router(estimator.router)
 app.include_router(health.router)
+app.include_router(whatsapp.router)
 
 
 @app.get("/api/system/health")

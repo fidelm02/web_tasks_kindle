@@ -59,7 +59,7 @@ def main() -> None:
         # Paso 1: Detener los servicios en el servidor
         print("[2/4] Deteniendo servicios en el servidor...")
         code, out, err = execute_ssh_command(
-            client, f"cd {repo_path} && python3 kindle_web.py stop && python3 portal_web.py stop"
+            client, f"cd {repo_path} && python3 kindle_web.py stop && python3 portal_web.py stop && (python3 whatsapp_web.py stop || true)"
         )
         if out:
             print(f"       {out}")
@@ -108,11 +108,16 @@ def main() -> None:
         code, portal_status, _ = execute_ssh_command(
             client, f"cd {repo_path} && python3 portal_web.py status"
         )
+        code, whatsapp_status, _ = execute_ssh_command(
+            client, f"cd {repo_path} && (python3 whatsapp_web.py status || true)"
+        )
         print("\nEstado final de los servicios:")
         print("--- Kindle Tasks (8080) ---")
         print(kindle_status)
         print("\n--- Portal Pro (8090) ---")
         print(portal_status)
+        print("\n--- WhatsApp Bridge (Chismoso) ---")
+        print(whatsapp_status)
 
         print("\n✓ ¡Sincronización y despliegue completados con éxito!")
 

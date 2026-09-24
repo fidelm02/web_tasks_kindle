@@ -1,0 +1,338 @@
+"""Servicio de Procesamiento Inteligente de Mensajes y Audios de WhatsApp (Grupo 'Chismoso').
+
+Recibe eventos del bridge de WhatsApp (audios en formato opus/ogg o mensajes de texto),
+los procesa directamente con la API multimodal de Google Gemini (gemini-3.6-flash / fallback)
+y ejecuta automáticamente la acción requerida:
+1. Crear Tarea para Fidel o Lau en storage.py
+2. Generar Documento Markdown para Kindle en docs/ o docs_lau/
+3. Registrar métricas de salud (peso corporal o hábitos de gym/caminata) en health_service.py
+4. Responder consultas o dudas en el grupo de WhatsApp.
+"""
+
+from __future__ import annotations
+
+import base64
+from datetime import date, datetime
+import json
+import logging
+from pathlib import Path
+import re
+from typing import Any
+import uuid
+
+from app import storage
+from app.constants import GEMINI_TOKEN
+from app.services import reader_service
+from portal.services import health_service
+
+logger = logging.getLogger(__name__)
+
+# Modelos candidatos en orden de preferencia
+GEMINI_MODELS = [
+    "gemini-3.6-flash",
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite",
+]
+
+# Historial reciente de mensajes procesados para auditoría y visualización en el Portal
+_MAX_HISTORY_ITEMS = 50
+_whatsapp_activity_log: list[dict[str, Any]] = []
+
+
+WHATSAPP_PROMPT_TEMPLATE = """Eres el Asistente Inteligente del grupo de WhatsApp "Chismoso", integrado por Fidel y su novia Lau.
+Tu labor es escuchar/analizar el mensaje (audio o texto) con máxima atención, entender la intención de quien habla y clasificarla para ejecutar la acción correspondiente en el sistema Kindle Tasks Pro.
+
+CONTEXTO TEMPORAL:
+- Fecha de hoy: {today_date} ({day_name})
+
+INTEGRANTES:
+- "fidel": Fidel Moreno (usuario principal)
+- "lau": Lau (novia de Fidel)
+
+REGLAS DE INTERPRETACIÓN:
+1. "task" (Crear Tarea):
+   - Cuando se mencione una tarea por hacer, comprar, recordar, pendiente, trámite o actividad.
+   - Identificar para quién es: "target" debe ser "fidel" o "lau" (por defecto "fidel" salvo que se mencione o refiera a Lau).
+   - "title": Título conciso y claro de la tarea.
+   - "description": Detalles, especificaciones o notas mencionadas en el audio.
+   - "priority": "high", "normal", o "low" (por defecto "normal", salvo que indiquen urgencia).
+   - "due_date": Fecha calculada en formato YYYY-MM-DD si indican "mañana", "el viernes", "el sábado", "en 3 días", etc., o null si no se especifica.
+
+2. "kindle_doc" (Documento / Lectura para Kindle):
+   - Cuando indiquen "para el kindle", "lectura", "artículo", "guarda este resumen", "apunte de lectura", o compartan información extensa que quieran leer en su Kindle Scribe.
+   - "target": "fidel" (se guarda en docs/) o "lau" (se guarda en docs_lau/).
+   - "title": Título descriptivo del documento.
+   - "markdown_content": Contenido completo en Markdown bien formateado (con títulos ##, viñetas, negritas) listo para leer en Kindle.
+
+3. "health_log" (Salud & Fitness):
+   - Cuando indiquen pesaje (ej: "pesé 92.5 kg", "mi peso hoy fue 93"), o hábitos ("ya fui al gym", "terminé mi caminata de 1 hora", "tomé mis 3 litros de agua").
+   - "target": "fidel" o "lau".
+   - "metric_type": "weight" o "habit".
+   - Si es "weight": "weight_value" (número flotante, ej. 92.5), "notes": notas opcionales.
+   - Si es "habit": "habit_id" ("gym", "walk", o "water").
+
+4. "chat_response" (Respuesta / Consulta general):
+   - Cuando hagan una pregunta, consulta de datos, cálculo rápido o saludo que requiera responderles directamente en el grupo.
+   - "reply_text": Respuesta amigable, concisa y útil para el grupo.
+
+DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA (sin backticks extraños):
+{{
+  "action": "task" | "kindle_doc" | "health_log" | "chat_response",
+  "target": "fidel" | "lau",
+  "transcription": "Transcripción textual de lo que se dijo en el audio o mensaje recibido",
+  "summary": "Resumen en una frase de la acción comprendida",
+  "task": {{
+    "title": "Título de la tarea",
+    "description": "Detalles o notas",
+    "priority": "normal",
+    "due_date": "YYYY-MM-DD"
+  }},
+  "kindle_doc": {{
+    "title": "Título del documento",
+    "category": "General",
+    "markdown_content": "# Título\\n\\nContenido en Markdown..."
+  }},
+  "health_log": {{
+    "metric_type": "weight",
+    "weight_value": 92.5,
+    "habit_id": "gym",
+    "notes": "Pesaje matutino"
+  }},
+  "chat_response": {{
+    "reply_text": "Texto de respuesta para enviar al grupo"
+  }}
+}}
+"""
+
+
+def _clean_json_response(raw_text: str) -> dict[str, Any]:
+    """Limpia etiquetas markdown y parsea JSON."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    cleaned = cleaned.strip()
+    return json.loads(cleaned)
+
+
+def _get_day_name(d: date) -> str:
+    """Devuelve el nombre del día en español."""
+    dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    return dias[d.weekday()]
+
+
+def process_whatsapp_message(
+    sender_name: str,
+    sender_phone: str,
+    group_name: str,
+    message_type: str = "text",
+    text_content: str | None = None,
+    audio_base64: str | None = None,
+    audio_mimetype: str = "audio/ogg",
+) -> dict[str, Any]:
+    """Procesa un mensaje recibido en el grupo 'Chismoso' de WhatsApp.
+
+    Args:
+        sender_name: Nombre visible del remitente en WhatsApp.
+        sender_phone: Número de teléfono o identificador de WhatsApp.
+        group_name: Nombre del grupo donde se originó el mensaje.
+        message_type: 'audio' o 'text'.
+        text_content: Texto del mensaje si message_type == 'text'.
+        audio_base64: Cadena base64 del audio si message_type == 'audio'.
+        audio_mimetype: Tipo MIME del audio (audio/ogg, audio/mp4, audio/webm, etc.).
+
+    Returns:
+        dict[str, Any]: Resultado con acción ejecutada y respuesta a enviar al grupo.
+    """
+    now = datetime.now()
+    today = date.today()
+    log_id = str(uuid.uuid4())[:8]
+
+    # Validar que tengamos contenido
+    if message_type == "text" and not (text_content and text_content.strip()):
+        return {"status": "error", "message": "Mensaje de texto vacío."}
+    if message_type == "audio" and not audio_base64:
+        return {"status": "error", "message": "Audio base64 no proporcionado."}
+
+    prompt = WHATSAPP_PROMPT_TEMPLATE.format(
+        today_date=today.isoformat(),
+        day_name=_get_day_name(today),
+    )
+
+    # Preparar llamada a Gemini
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=GEMINI_TOKEN)
+    except Exception as exc:
+        logger.error("Error al inicializar cliente Google GenAI: %s", exc)
+        return {
+            "status": "error",
+            "reply": "⚠️ Error interno: No se pudo contactar con el servicio de IA.",
+            "detail": str(exc),
+        }
+
+    # Armar los contenidos (multimodal si es audio)
+    contents: list[Any] = []
+    if message_type == "audio" and audio_base64:
+        try:
+            audio_bytes = base64.b64decode(audio_base64)
+            # Asegurar tipo mime limpio
+            clean_mime = audio_mimetype.split(";")[0].strip() or "audio/ogg"
+            contents.append(
+                types.Part.from_bytes(data=audio_bytes, mime_type=clean_mime)
+            )
+            contents.append(
+                "Por favor analiza este audio del grupo 'Chismoso' de WhatsApp y responde estrictamente con el JSON de acción indicado:"
+            )
+        except Exception as b64_err:
+            logger.error("Error al decodificar audio base64: %s", b64_err)
+            return {
+                "status": "error",
+                "reply": "⚠️ No se pudo procesar el archivo de audio recibido.",
+            }
+    else:
+        contents.append(
+            f"Mensaje de texto de {sender_name}: '{text_content}'\nAnaliza la intención y responde con el JSON:"
+        )
+
+    contents.append(prompt)
+
+    # Invocar Gemini con reintentos de modelo
+    parsed_ai: dict[str, Any] | None = None
+    ai_raw = ""
+    for model_name in GEMINI_MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+            )
+            ai_raw = response.text or ""
+            parsed_ai = _clean_json_response(ai_raw)
+            break
+        except Exception as api_err:
+            logger.warning("Fallo con modelo %s: %s", model_name, api_err)
+            continue
+
+    if not parsed_ai:
+        return {
+            "status": "error",
+            "reply": "⚠️ No pude interpretar la nota de voz. Por favor intenta de nuevo con más claridad.",
+            "raw": ai_raw,
+        }
+
+    action = parsed_ai.get("action", "chat_response")
+    target = (parsed_ai.get("target") or "fidel").lower()
+    if target not in ("fidel", "lau"):
+        target = "fidel"
+
+    transcription = parsed_ai.get("transcription") or (text_content or "")
+    summary = parsed_ai.get("summary") or "Procesado por Asistente Chismoso"
+    reply_text = ""
+
+    # =========================================================================
+    # EJECUTOR 1: CREAR TAREA (KINDLE / PORTAL)
+    # =========================================================================
+    if action == "task":
+        task_info = parsed_ai.get("task") or {}
+        title = task_info.get("title") or transcription[:60]
+        desc = task_info.get("description") or f"Creada desde WhatsApp por {sender_name}"
+        priority = task_info.get("priority") or "normal"
+        due_date = task_info.get("due_date")
+
+        created = storage.create_task(
+            title=title,
+            description=desc,
+            priority=priority,
+            target_date=due_date,
+            scope=target,
+        )
+
+        target_display = "Fidel" if target == "fidel" else "Lau"
+        due_badge = f" (📅 Para: {due_date})" if due_date else ""
+        prio_badge = " 🔥 Alta" if priority == "high" else ""
+        reply_text = f"✓ Tarea agregada a *{target_display}*{prio_badge}: \"{title}\"{due_badge}"
+
+    # =========================================================================
+    # EJECUTOR 2: GENERAR DOCUMENTO MARKDOWN PARA KINDLE
+    # =========================================================================
+    elif action == "kindle_doc":
+        doc_info = parsed_ai.get("kindle_doc") or {}
+        doc_title = doc_info.get("title") or "Apunte de WhatsApp"
+        category = doc_info.get("category") or "General"
+        md_body = doc_info.get("markdown_content") or f"# {doc_title}\n\n{transcription}"
+
+        # Guardar en directorio docs correspondiente
+        docs_target_dir = reader_service._ensure_docs_dir(target)
+        cat_dir = docs_target_dir / category
+        cat_dir.mkdir(parents=True, exist_ok=True)
+
+        slug = re.sub(r"[^a-zA-Z0-9_-]", "_", doc_title.lower()).strip("_")[:40] or "nota"
+        filename = f"{today.isoformat()}_{slug}.md"
+        file_path = cat_dir / filename
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(md_body)
+
+        target_display = "Fidel" if target == "fidel" else "Lau"
+        reply_text = f"📖 Documento Kindle guardado para *{target_display}*:\n📄 *{doc_title}*\nCarpeta: `{category}/{filename}` (Listo para leer en Kindle)"
+
+    # =========================================================================
+    # EJECUTOR 3: REGISTRO DE SALUD / PESO / HÁBITOS
+    # =========================================================================
+    elif action == "health_log":
+        health_info = parsed_ai.get("health_log") or {}
+        metric = health_info.get("metric_type", "weight")
+        target_display = "Fidel" if target == "fidel" else "Lau"
+
+        if metric == "weight" and health_info.get("weight_value"):
+            w_val = float(health_info["weight_value"])
+            notes = health_info.get("notes") or f"Registro vía WhatsApp ({sender_name})"
+            health_service.log_weight_entry(profile_id=target, weight=w_val, notes=notes)
+            reply_text = f"⚖️ Peso registrado para *{target_display}*: *{w_val:.1f} kg* ({notes})"
+        elif metric == "habit":
+            habit_id = health_info.get("habit_id", "gym")
+            health_service.toggle_habit(target, habit_id, today.isoformat())
+            habit_names = {"gym": "🏋️‍♂️ Gimnasio", "walk": "🚶 Caminata 1h", "water": "💧 3L de Agua"}
+            h_name = habit_names.get(habit_id, habit_id.capitalize())
+            reply_text = f"💪 Hábito completado para *{target_display}*: *{h_name}* ¡Gran trabajo!"
+        else:
+            reply_text = f"✓ Dato de salud recibido y guardado para *{target_display}*."
+
+    # =========================================================================
+    # EJECUTOR 4: RESPUESTA DE CHAT DIRECTA
+    # =========================================================================
+    else:
+        chat_info = parsed_ai.get("chat_response") or {}
+        reply_text = chat_info.get("reply_text") or f"Asistente Chismoso: {summary}"
+
+    # Guardar en registro de actividad en memoria
+    activity_entry = {
+        "id": log_id,
+        "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "sender": sender_name,
+        "message_type": message_type,
+        "transcription": transcription,
+        "action": action,
+        "target": target,
+        "summary": summary,
+        "reply": reply_text,
+    }
+    _whatsapp_activity_log.insert(0, activity_entry)
+    if len(_whatsapp_activity_log) > _MAX_HISTORY_ITEMS:
+        _whatsapp_activity_log.pop()
+
+    return {
+        "status": "success",
+        "action": action,
+        "target": target,
+        "transcription": transcription,
+        "summary": summary,
+        "reply": reply_text,
+    }
+
+
+def get_recent_activity() -> list[dict[str, Any]]:
+    """Retorna el historial reciente de mensajes de WhatsApp procesados."""
+    return list(_whatsapp_activity_log)

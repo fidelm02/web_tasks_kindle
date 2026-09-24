@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Integración WhatsApp Chismoso | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<section class="control-bar" style="flex-wrap:wrap; gap:1rem;">
+  <div>
+    <div style="display:inline-flex; align-items:center; gap:0.4rem; background:rgba(37,211,102,0.15); color:#25D366; padding:0.25rem 0.65rem; border-radius:var(--radius-full); font-size:0.75rem; font-weight:700; margin-bottom:0.4rem;">
+      <span>💬 GRUPO WHATSAPP</span>
+      <span>•</span>
+      <span>"Chismoso"</span>
+    </div>
+    <h2 style="font-size:1.45rem; font-weight:800; letter-spacing:-0.02em;">Asistente Inteligente de WhatsApp</h2>
+    <p style="font-size:0.875rem; color:var(--text-secondary); margin-top:0.25rem;">
+      Escucha notas de voz y mensajes en el grupo compartido con Lau, interpreta la intención con <strong>Google Gemini Multimodal</strong> y ejecuta acciones automáticas (Tareas Kindle, Documentos .md o Registro de Peso/Gym).
+    </p>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:0.75rem;">
+    <div id="bridge-status-pill" style="display:inline-flex; align-items:center; gap:0.5rem; background:rgba(15,23,42,0.8); border:1px solid var(--border-subtle); padding:0.4rem 0.85rem; border-radius:var(--radius-full); font-size:0.82rem;">
+      <span class="status-dot" style="width:8px; height:8px; border-radius:50%; background:{% if bridge_status.connected %}#10b981{% else %}#f59e0b{% endif %}; display:inline-block;"></span>
+      <span style="font-weight:600;">
+        {% if bridge_status.connected %}
+          Conectado como {{ bridge_status.phone or 'Fidel' }}
+        {% else %}
+          Esperando Vinculación QR
+        {% endif %}
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- Cheat Sheet & Guidance Card -->
+<section class="panel-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%); border-left: 4px solid #25D366;">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+    <h3 style="font-size:1.05rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+      <span>🎙️</span>
+      <span>Guía de Audios para el Grupo "Chismoso"</span>
+    </h3>
+    <button class="btn btn-secondary btn-sm" onclick="copyGroupDescription()" title="Copiar plantilla para la descripción del grupo de WhatsApp">
+      <span>📋</span>
+      <span id="btn-copy-text">Copiar para WhatsApp</span>
+    </button>
+  </div>
+
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; font-size:0.82rem; line-height:1.5;">
+    <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+      <strong style="color:#60a5fa; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
+        <span>📌</span> 1. Crear Tareas
+      </strong>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Menciona la persona y la acción:</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Tarea Fidel: Comprar focos mañana"</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Tarea Lau: Agendar cita médica"</code>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+      <strong style="color:#a78bfa; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
+        <span>📖</span> 2. Documentos Kindle (.md)
+      </strong>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Crea artículos listos para leer en Kindle:</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Para el Kindle: Resumen del libro..."</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Lectura para Lau: Consejos de viaje"</code>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+      <strong style="color:#34d399; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
+        <span>💪</span> 3. Salud & Fitness
+      </strong>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Registra peso o asistencia diaria:</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Peso Fidel: 92.6 kilos hoy"</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Completé el gym y caminata"</code>
+    </div>
+  </div>
+</section>
+
+<!-- Dual Layout: Simulator + Activity Feed -->
+<div style="display:grid; grid-template-columns: 380px 1fr; gap:1.5rem; align-items:start;">
+
+  <!-- Simulator Form -->
+  <div class="panel-card">
+    <h3 style="font-size:1.05rem; font-weight:700; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">
+      <span>🧪</span>
+      <span>Simulador de Mensajes</span>
+    </h3>
+    <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:1rem;">
+      Prueba cómo Gemini interpreta tus mensajes y ejecuta la acción antes o mientras vinculas WhatsApp.
+    </p>
+
+    <form onsubmit="simulateWhatsApp(event)">
+      <div class="form-group" style="margin-bottom:0.75rem;">
+        <label class="form-label">Remitente</label>
+        <select id="sim-sender" class="form-control">
+          <option value="Fidel" selected>Fidel</option>
+          <option value="Lau">Lau</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label class="form-label">Mensaje o Audio transcrito *</label>
+        <textarea id="sim-message" class="form-control" rows="3" placeholder="Ej: Tarea Fidel: Cambiar focos de la cocina mañana temprano..." required></textarea>
+      </div>
+
+      <button type="submit" id="btn-sim" class="btn btn-primary" style="width:100%; justify-content:center;">
+        <span>⚡</span>
+        <span>Procesar con IA Gemini</span>
+      </button>
+
+      <div id="sim-loader" style="display:none; text-align:center; padding:1rem; color:var(--accent-primary); font-size:0.85rem;">
+        <span style="display:inline-block; animation:spin 1s infinite linear;">⚙</span> Interpretando con Gemini 3.6 Flash...
+      </div>
+    </form>
+
+    <!-- Simulation Result Box -->
+    <div id="sim-result-box" style="display:none; margin-top:1.25rem; background:rgba(15,23,42,0.7); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:1rem; font-size:0.82rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <strong id="sim-action-badge" class="card-scope-badge" style="background:rgba(99,102,241,0.2); color:#a5b4fc;">ACCIÓN</strong>
+        <span id="sim-target-badge" style="color:var(--text-muted); font-size:0.75rem;">Target</span>
+      </div>
+      <p id="sim-summary" style="font-weight:600; margin-bottom:0.5rem;"></p>
+      <div id="sim-reply" style="background:rgba(37,211,102,0.1); border-left:3px solid #25D366; padding:0.6rem; border-radius:4px; color:#bbf7d0; line-height:1.4;"></div>
+    </div>
+  </div>
+
+  <!-- Live Activity Log -->
+  <div class="panel-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h3 style="font-size:1.05rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+        <span>📜</span>
+        <span>Registro de Mensajes & Acciones en Vivo</span>
+      </h3>
+      <button class="btn btn-secondary btn-sm" onclick="window.location.reload()" title="Recargar eventos">
+        <span>🔄</span>
+        <span>Actualizar</span>
+      </button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Remitente</th>
+            <th>Mensaje / Audio</th>
+            <th>Acción Ejecutada</th>
+            <th>Respuesta al Grupo</th>
+          </tr>
+        </thead>
+        <tbody id="whatsapp-activity-tbody">
+          {% if recent_activity %}
+            {% for item in recent_activity %}
+            <tr>
+              <td style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">{{ item.timestamp }}</td>
+              <td style="font-weight:600;">
+                {% if item.sender == 'Fidel' %}👨🏻‍💻 Fidel{% else %}👩🏻‍💼 Lau{% endif %}
+              </td>
+              <td style="max-width:240px; font-size:0.8rem;">
+                {% if item.message_type == 'audio' %}
+                <span style="font-size:0.72rem; background:rgba(99,102,241,0.15); color:#a5b4fc; padding:0.15rem 0.4rem; border-radius:4px;">🎙️ Audio</span>
+                {% endif %}
+                <span title="{{ item.transcription }}">{{ item.transcription[:75] }}{% if item.transcription|length > 75 %}...{% endif %}</span>
+              </td>
+              <td>
+                <span class="card-scope-badge" style="font-size:0.72rem;">
+                  {{ item.action|upper }} ({{ item.target|capitalize }})
+                </span>
+              </td>
+              <td style="font-size:0.78rem; color:#bbf7d0;">{{ item.reply }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                Aún no hay mensajes procesados en el grupo. Envía un audio en WhatsApp o prueba el simulador a la izquierda.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function copyGroupDescription() {
+  const desc = `🎙️ ASISTENTE CHISMOSO (Kindle & Tasks Hub) ⚡\\nEnvía un audio o texto con una de estas intenciones:\\n\\n📌 1. TAREAS\\n• "Tarea Fidel: Comprar focos mañana"\\n• "Tarea Lau: Agendar cita del dentista"\\n\\n📚 2. DOCUMENTOS KINDLE (.md)\\n• "Para el Kindle: [Resumen o texto]"\\n• "Lectura para Lau: [Notas]"\\n\\n💪 3. SALUD & HÁBITOS\\n• "Peso: 92.5 kilos hoy"\\n• "Ya fui al gym / Caminé 1 hora"\\n\\n💡 Tip: Di primero el TIPO ("Tarea para...", "Para el Kindle...", "Salud:") y luego los detalles.`;
+  navigator.clipboard.writeText(desc.replace(/\\\\n/g, '\\n'));
+  const btn = document.getElementById('btn-copy-text');
+  btn.innerText = '¡Copiado!';
+  setTimeout(() => { btn.innerText = 'Copiar para WhatsApp'; }, 2000);
+}
+
+async function simulateWhatsApp(event) {
+  event.preventDefault();
+  const sender = document.getElementById('sim-sender').value;
+  const message = document.getElementById('sim-message').value;
+  const btn = document.getElementById('btn-sim');
+  const loader = document.getElementById('sim-loader');
+  const resultBox = document.getElementById('sim-result-box');
+
+  btn.style.display = 'none';
+  loader.style.display = 'block';
+  resultBox.style.display = 'none';
+
+  try {
+    const formData = new FormData();
+    formData.append('sender_name', sender);
+    formData.append('message_text', message);
+
+    const res = await fetch('/api/whatsapp/simulate', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+
+    document.getElementById('sim-action-badge').innerText = (data.action || 'OK').toUpperCase();
+    document.getElementById('sim-target-badge').innerText = 'Destino: ' + (data.target || 'fidel').toUpperCase();
+    document.getElementById('sim-summary').innerText = data.summary || '';
+    document.getElementById('sim-reply').innerText = data.reply || '';
+    resultBox.style.display = 'block';
+
+    // Recargar tabla de actividad
+    setTimeout(() => { window.location.reload(); }, 2500);
+  } catch (err) {
+    alert('Error al simular mensaje: ' + err.message);
+  } finally {
+    btn.style.display = 'inline-flex';
+    loader.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

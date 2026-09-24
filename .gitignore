@@ -68,9 +68,19 @@ htmlcov/
 *~
 
 # ==========================================
+# Node.js & WhatsApp Bridge Auth
+# ==========================================
+node_modules/
+whatsapp_bridge/node_modules/
+auth_info_baileys/
+whatsapp_bridge/auth_info_baileys/
+package-lock.json
+
+# ==========================================
 # Archivos del Sistema Operativo
 # ==========================================
 .DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
