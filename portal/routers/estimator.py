@@ -69,11 +69,33 @@ async def api_analyze_effort(req: AnalyzeEffortRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class AnalyzeExistingTaskRequest(BaseModel):
+    task_id: str
+    scope: str = "fidel"
+
+
+class ApplyToTaskRequest(BaseModel):
+    task_id: str
+    scope: str = "fidel"
+    story_points: float | None = None
+    estimated_hours: float | None = None
+    subtasks: list[str] | list[dict[str, Any]] = []
+    summary: str = ""
+
+
+class ConvertToRecurrentRequest(BaseModel):
+    task_id: str
+    scope: str = "fidel"
+    frequency: str = "daily"
+    days_of_week: list[int] | None = None
+    interval_days: int = 1
+    story_points: float | None = None
+
+
 @router.post("/api/estimator/create-task")
 async def api_create_from_estimation(req: CreateFromEstimationRequest):
     """Convierte la estimación en una tarea real en el tablero Kanban."""
     try:
-        # Formatear subtareas en objetos de lista de verificación
         formatted_subtasks = []
         for item in req.subtasks:
             if isinstance(item, str):
@@ -95,3 +117,82 @@ async def api_create_from_estimation(req: CreateFromEstimationRequest):
     except Exception as exc:
         logger.exception("Error al crear tarea desde estimación: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/api/estimator/analyze-existing")
+async def api_analyze_existing(req: AnalyzeExistingTaskRequest):
+    """Analiza una tarea existente usando Gemini y evalúa viabilidad recurrente."""
+    from app import storage
+
+    tasks = storage.read_tasks(scope=req.scope)
+    target = None
+    for t in tasks:
+        if t["id"] == req.task_id:
+            target = t
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+
+    estimation = effort_estimator.estimate_task_effort(
+        title=target.get("title", ""),
+        description=target.get("description", ""),
+        scope=req.scope,
+        context=f"Prioridad actual: {target.get('priority')}. Etapa: {target.get('stage', 'todo')}",
+    )
+    estimation["task_id"] = req.task_id
+    estimation["current_stage"] = target.get("stage", "todo")
+    estimation["current_priority"] = target.get("priority", "Media")
+    return {"status": "ok", "estimation": estimation, "task": target}
+
+
+@router.post("/api/estimator/apply-to-task")
+async def api_apply_to_task(req: ApplyToTaskRequest):
+    """Aplica los resultados del análisis IA a una tarea existente."""
+    formatted_subtasks = []
+    for item in req.subtasks:
+        if isinstance(item, str):
+            formatted_subtasks.append({"title": item, "done": False})
+        elif isinstance(item, dict):
+            formatted_subtasks.append(item)
+
+    updated = project_workflow.update_portal_task(
+        task_id=req.task_id,
+        scope=req.scope,
+        story_points=req.story_points,
+        estimated_hours=req.estimated_hours,
+        subtasks=formatted_subtasks,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+    return {"status": "ok", "task": updated}
+
+
+@router.post("/api/estimator/convert-to-recurrent")
+async def api_convert_to_recurrent(req: ConvertToRecurrentRequest):
+    """Convierte una tarea existente en una regla de crones recurrentes."""
+    from app import storage
+    from portal.services import recurrent_engine
+
+    tasks = storage.read_tasks(scope=req.scope)
+    target = None
+    for t in tasks:
+        if t["id"] == req.task_id:
+            target = t
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+
+    rule = recurrent_engine.add_rule(
+        title=target.get("title", "Tarea"),
+        description=target.get("description", ""),
+        scope=req.scope,
+        priority=target.get("priority", "Media"),
+        frequency=req.frequency,
+        days_of_week=req.days_of_week or [0, 1, 2, 3, 4, 5, 6],
+        interval_days=req.interval_days,
+        story_points=req.story_points or target.get("story_points"),
+    )
+    return {"status": "ok", "rule": rule}
+

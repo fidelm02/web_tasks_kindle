@@ -162,6 +162,53 @@ def delete_rule(rule_id: str) -> bool:
     return False
 
 
+def update_rule(
+    rule_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    scope: str | None = None,
+    priority: str | None = None,
+    frequency: str | None = None,
+    days_of_week: list[int] | None = None,
+    interval_days: int | None = None,
+    story_points: float | None = None,
+) -> dict[str, Any] | None:
+    """Actualiza la configuración de una regla recurrente existente."""
+    rules = get_all_rules()
+    target_rule = None
+    for r in rules:
+        if r.get("id") == rule_id:
+            target_rule = r
+            break
+
+    if not target_rule:
+        return None
+
+    if title is not None:
+        target_rule["title"] = title.strip()
+    if description is not None:
+        target_rule["description"] = description.strip()
+    if scope is not None:
+        target_rule["scope"] = (scope or "fidel").lower().strip()
+    if priority is not None:
+        target_rule["priority"] = priority
+    if frequency is not None:
+        target_rule["frequency"] = frequency
+    if days_of_week is not None:
+        target_rule["days_of_week"] = days_of_week
+    if interval_days is not None:
+        target_rule["interval_days"] = max(1, int(interval_days))
+    if story_points is not None:
+        target_rule["story_points"] = (
+            float(story_points) if story_points != "" else None
+        )
+
+    target_rule["updated_at"] = datetime.now().isoformat()
+    save_all_rules(rules)
+    return target_rule
+
+
+
 def _normalize_text(text: str) -> str:
     """Normaliza texto para comparaciones de deduplicación."""
     cleaned = (text or "").lower().strip()

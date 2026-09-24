@@ -149,6 +149,8 @@ def get_kanban_board(
     for t in active_tasks:
         stage = _normalize_task_stage(t)
         t["stage"] = stage
+        t["code"] = format_task_code(t, t.get("scope", "fidel"))
+        t["google_cal_url"] = generate_google_calendar_url(t)
         sp = t.get("story_points")
         try:
             sp_val = float(sp) if sp is not None else 0.0
@@ -232,6 +234,62 @@ def move_task_stage(
         return target_task
 
 
+def format_task_code(task: dict[str, Any], scope: str) -> str:
+    """Genera o recupera un identificador humano único y corto (ej. FID-4A1B)."""
+    if task.get("code"):
+        return task["code"]
+    scope_clean = (scope or "FID").upper()
+    prefix = "REF" if ("PROYECTO" in scope_clean or "REFORMA" in scope_clean) else scope_clean[:3]
+    short_hash = "".join(c for c in str(task.get("id", "")) if c.isalnum())[:4].upper()
+    code = f"{prefix}-{short_hash or '01'}"
+    task["code"] = code
+    return code
+
+
+def generate_google_calendar_url(task: dict[str, Any]) -> str:
+    """Genera URL directa para bloquear tiempo en Google Calendar con un solo clic."""
+    import urllib.parse
+
+    code = task.get("code") or format_task_code(task, task.get("scope", "fidel"))
+    title = f"[{code}] {task.get('title', 'Tarea')}"
+    target_date = task.get("target_date")
+    start_time = task.get("start_time") or "09:00"
+    end_time = task.get("end_time") or "10:30"
+
+    if target_date:
+        d_clean = target_date.replace("-", "")
+        st_clean = start_time.replace(":", "") + "00"
+        et_clean = end_time.replace(":", "") + "00"
+        dates_param = f"{d_clean}T{st_clean}/{d_clean}T{et_clean}"
+    else:
+        now = datetime.now()
+        d_clean = now.strftime("%Y%m%d")
+        dates_param = f"{d_clean}T090000/{d_clean}T103000"
+
+    subtasks_text = ""
+    for st in task.get("subtasks", []):
+        st_title = st.get("title") if isinstance(st, dict) else str(st)
+        subtasks_text += f"\n- [ ] {st_title}"
+
+    details = (
+        f"Código: {code}\n"
+        f"Proyecto / Scope: {task.get('scope')}\n"
+        f"Prioridad: {task.get('priority')}\n"
+        f"Story Points: {task.get('story_points') or 'N/A'}\n"
+        f"Horas Estimadas: {task.get('estimated_hours') or 'N/A'}h\n\n"
+        f"Descripción:\n{task.get('description', '')}\n"
+        f"{f'Subtareas:{subtasks_text}' if subtasks_text else ''}"
+    )
+
+    params = {
+        "action": "TEMPLATE",
+        "text": title,
+        "dates": dates_param,
+        "details": details,
+    }
+    return f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(params)}"
+
+
 def create_portal_task(
     title: str,
     description: str = "",
@@ -241,9 +299,11 @@ def create_portal_task(
     story_points: float | None = None,
     estimated_hours: float | None = None,
     target_date: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
     subtasks: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Crea una tarea extendida con soporte para Story Points, etapas y subtareas."""
+    """Crea una tarea extendida con soporte para Story Points, etapas, bloqueo de tiempo y subtareas."""
     db_path, lock_path = storage._get_paths(scope)
     storage._ensure_db_exists(scope)
 
@@ -252,9 +312,11 @@ def create_portal_task(
 
     now_iso = datetime.now().isoformat()
     status = "completed" if stage == "done" else "pending"
+    task_id = str(uuid.uuid4())
 
     new_task = {
-        "id": str(uuid.uuid4()),
+        "id": task_id,
+        "code": None,  # Se asigna abajo
         "title": title.strip(),
         "description": (description or "").strip(),
         "priority": priority,
@@ -264,11 +326,14 @@ def create_portal_task(
         "story_points": float(story_points) if story_points is not None and story_points != "" else None,
         "estimated_hours": float(estimated_hours) if estimated_hours is not None and estimated_hours != "" else None,
         "target_date": target_date or None,
+        "start_time": start_time or None,
+        "end_time": end_time or None,
         "subtasks": subtasks or [],
         "created_at": now_iso,
         "updated_at": now_iso,
         "completed_at": now_iso if stage == "done" else None,
     }
+    new_task["code"] = format_task_code(new_task, scope)
 
     with FileLock(lock_path):
         tasks = storage.read_tasks(scope)
@@ -299,7 +364,17 @@ def update_portal_task(
             return None
 
         # Actualizar campos permitidos
-        for key in ["title", "description", "priority", "target_date", "story_points", "estimated_hours", "subtasks"]:
+        for key in [
+            "title",
+            "description",
+            "priority",
+            "target_date",
+            "start_time",
+            "end_time",
+            "story_points",
+            "estimated_hours",
+            "subtasks",
+        ]:
             if key in fields:
                 val = fields[key]
                 if key in ("story_points", "estimated_hours"):
@@ -323,6 +398,233 @@ def update_portal_task(
                 target["status"] = "pending"
                 target["completed_at"] = None
 
+        if not target.get("code"):
+            target["code"] = format_task_code(target, scope)
+
         target["updated_at"] = datetime.now().isoformat()
         storage._write_tasks_atomic(tasks, scope)
         return target
+
+
+def get_table_data(
+    scope: str = "fidel",
+    search: str = "",
+    priority: str = "",
+    stage: str = "",
+    sort_by: str = "created_at",
+    order: str = "desc",
+) -> dict[str, Any]:
+    """Prepara la lista tabular estructurada de tareas para la vista de Tabla/Lista."""
+    all_sections = get_all_sections_info()
+    valid_scopes = [s["id"] for s in all_sections]
+
+    if scope == "all":
+        tasks_pool = []
+        for s_id in valid_scopes:
+            for t in storage.read_tasks(scope=s_id):
+                t_copy = dict(t)
+                t_copy["scope"] = s_id
+                tasks_pool.append(t_copy)
+    else:
+        actual_scope = scope if scope in valid_scopes else "fidel"
+        tasks_pool = []
+        for t in storage.read_tasks(scope=actual_scope):
+            t_copy = dict(t)
+            t_copy["scope"] = actual_scope
+            tasks_pool.append(t_copy)
+
+    # Filtrar archivadas
+    active = [t for t in tasks_pool if t.get("status") != "archived"]
+
+    # Procesar campos derivados
+    for t in active:
+        t["stage"] = _normalize_task_stage(t)
+        t["code"] = format_task_code(t, t.get("scope", "fidel"))
+        t["google_cal_url"] = generate_google_calendar_url(t)
+
+        subtasks = t.get("subtasks", [])
+        if isinstance(subtasks, list):
+            completed_count = sum(1 for st in subtasks if isinstance(st, dict) and st.get("done"))
+            t["subtasks_count"] = len(subtasks)
+            t["subtasks_completed"] = completed_count
+        else:
+            t["subtasks_count"] = 0
+            t["subtasks_completed"] = 0
+
+    # Filtros
+    if search:
+        q = search.lower().strip()
+        active = [
+            t
+            for t in active
+            if q in (t.get("title") or "").lower()
+            or q in (t.get("description") or "").lower()
+            or q in (t.get("code") or "").lower()
+        ]
+
+    if priority and priority != "all":
+        active = [t for t in active if (t.get("priority") or "").lower() == priority.lower()]
+
+    if stage and stage != "all":
+        active = [t for t in active if t.get("stage") == stage]
+
+    # Ordenamiento
+    reverse = order.lower() == "desc"
+    if sort_by == "priority":
+        prio_order = {"urgente": 4, "alta": 3, "media": 2, "baja": 1}
+        active.sort(key=lambda t: prio_order.get((t.get("priority") or "").lower(), 0), reverse=reverse)
+    elif sort_by == "story_points":
+        active.sort(key=lambda t: float(t.get("story_points") or 0), reverse=reverse)
+    elif sort_by == "target_date":
+        active.sort(key=lambda t: t.get("target_date") or ("9999" if not reverse else ""), reverse=reverse)
+    elif sort_by == "title":
+        active.sort(key=lambda t: (t.get("title") or "").lower(), reverse=reverse)
+    else:
+        active.sort(key=lambda t: t.get("created_at") or "", reverse=reverse)
+
+    return {
+        "scope": scope,
+        "sections": all_sections,
+        "stages": STAGES,
+        "tasks": active,
+        "total_count": len(active),
+        "total_sp": round(sum(float(t.get("story_points") or 0) for t in active), 1),
+    }
+
+
+def get_calendar_data(
+    scope: str = "fidel",
+    year: int | None = None,
+    month: int | None = None,
+) -> dict[str, Any]:
+    """Construye la estructura de eventos y time blocking para la vista de Calendario y Gantt."""
+    import calendar as pycalendar
+
+    all_sections = get_all_sections_info()
+    valid_scopes = [s["id"] for s in all_sections]
+
+    if scope == "all":
+        tasks_pool = []
+        for s_id in valid_scopes:
+            for t in storage.read_tasks(scope=s_id):
+                t_copy = dict(t)
+                t_copy["scope"] = s_id
+                tasks_pool.append(t_copy)
+    else:
+        actual_scope = scope if scope in valid_scopes else "fidel"
+        tasks_pool = []
+        for t in storage.read_tasks(scope=actual_scope):
+            t_copy = dict(t)
+            t_copy["scope"] = actual_scope
+            tasks_pool.append(t_copy)
+
+    now = datetime.now()
+    cur_year = year or now.year
+    cur_month = month or now.month
+
+    # Asegurar códigos y urls
+    scheduled_tasks: list[dict[str, Any]] = []
+    unscheduled_tasks: list[dict[str, Any]] = []
+
+    for t in tasks_pool:
+        if t.get("status") == "archived":
+            continue
+        t["stage"] = _normalize_task_stage(t)
+        t["code"] = format_task_code(t, t.get("scope", "fidel"))
+        t["google_cal_url"] = generate_google_calendar_url(t)
+
+        t_date = t.get("target_date")
+        if t_date:
+            scheduled_tasks.append(t)
+        else:
+            unscheduled_tasks.append(t)
+
+    # Matriz del mes
+    cal = pycalendar.Calendar(firstweekday=0)  # Lunes primero
+    month_days = cal.monthdays2calendar(cur_year, cur_month)  # semanas con (dia, weekday)
+
+    # Agrupar tareas por fecha ISO "YYYY-MM-DD"
+    events_by_date: dict[str, list[dict[str, Any]]] = {}
+    for t in scheduled_tasks:
+        d_str = str(t.get("target_date") or "").split("T")[0]
+        events_by_date.setdefault(d_str, []).append(t)
+
+    # Construir semanas con eventos
+    weeks = []
+    for week in month_days:
+        week_days = []
+        for day, wday in week:
+            if day == 0:
+                week_days.append({"day": 0, "date_str": None, "is_current_month": False, "tasks": []})
+            else:
+                date_str = f"{cur_year:04d}-{cur_month:02d}-{day:02d}"
+                week_days.append(
+                    {
+                        "day": day,
+                        "date_str": date_str,
+                        "is_current_month": True,
+                        "is_today": (date_str == now.strftime("%Y-%m-%d")),
+                        "tasks": events_by_date.get(date_str, []),
+                    }
+                )
+        weeks.append(week_days)
+
+    month_name = pycalendar.month_name[cur_month]
+    meses_es = [
+        "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+
+    return {
+        "scope": scope,
+        "sections": all_sections,
+        "stages": STAGES,
+        "year": cur_year,
+        "month": cur_month,
+        "month_label": f"{meses_es[cur_month]} {cur_year}",
+        "weeks": weeks,
+        "scheduled_count": len(scheduled_tasks),
+        "unscheduled_tasks": unscheduled_tasks,
+    }
+
+
+def generate_ics_calendar(scope: str = "fidel") -> str:
+    """Genera un archivo de suscripción estándar iCalendar (.ics) para sincronizar con Google Calendar."""
+    board = get_kanban_board(scope=scope)
+    tasks = []
+    for stage_tasks in board["columns"].values():
+        tasks.extend(stage_tasks)
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Kindle Tasks Pro//ES",
+        f"X-WR-CALNAME:Kindle Tasks ({scope.upper()})",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+
+    for t in tasks:
+        t_date = t.get("target_date")
+        if not t_date:
+            continue
+        d_clean = t_date.replace("-", "")
+        st_clean = (t.get("start_time") or "09:00").replace(":", "") + "00"
+        et_clean = (t.get("end_time") or "10:30").replace(":", "") + "00"
+        code = t.get("code") or format_task_code(t, t.get("scope", "fidel"))
+
+        lines.extend([
+            "BEGIN:VEVENT",
+            f"UID:{t.get('id')}@kindletasks.local",
+            f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTART:{d_clean}T{st_clean}",
+            f"DTEND:{d_clean}T{et_clean}",
+            f"SUMMARY:[{code}] {t.get('title', 'Tarea')}",
+            f"DESCRIPTION:Prioridad: {t.get('priority')} | SP: {t.get('story_points')} | Etapa: {t.get('stage')}\\n{t.get('description', '')}",
+            f"STATUS:{'COMPLETED' if t.get('stage') == 'done' else 'CONFIRMED'}",
+            "END:VEVENT",
+        ])
+
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(lines)
+

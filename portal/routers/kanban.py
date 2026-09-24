@@ -37,6 +37,8 @@ class CreateTaskRequest(BaseModel):
     story_points: float | None = None
     estimated_hours: float | None = None
     target_date: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
     subtasks: list[dict[str, Any]] | None = None
 
 
@@ -50,6 +52,8 @@ class UpdateTaskRequest(BaseModel):
     story_points: float | None = None
     estimated_hours: float | None = None
     target_date: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
     subtasks: list[dict[str, Any]] | None = None
 
 
@@ -91,6 +95,79 @@ async def kanban_view(
     )
 
 
+@router.get("/table", response_class=HTMLResponse)
+async def table_view(
+    request: Request,
+    scope: str = "fidel",
+    search: str = "",
+    priority: str = "",
+    stage: str = "",
+    sort_by: str = "created_at",
+    order: str = "desc",
+):
+    """Renderiza la vista tabular estructurada de tareas."""
+    table_data = project_workflow.get_table_data(
+        scope=scope,
+        search=search,
+        priority=priority,
+        stage=stage,
+        sort_by=sort_by,
+        order=order,
+    )
+    return templates.TemplateResponse(
+        request,
+        "table.html",
+        {
+            "data": table_data,
+            "current_scope": scope,
+            "search_query": search,
+            "current_priority": priority,
+            "current_stage": stage,
+            "sort_by": sort_by,
+            "order": order,
+            "active_tab": "table",
+        },
+    )
+
+
+@router.get("/calendar", response_class=HTMLResponse)
+async def calendar_view(
+    request: Request,
+    scope: str = "fidel",
+    year: int | None = None,
+    month: int | None = None,
+):
+    """Renderiza la vista de Calendario y Bloqueo de Horas (Time Blocking)."""
+    cal_data = project_workflow.get_calendar_data(
+        scope=scope,
+        year=year,
+        month=month,
+    )
+    return templates.TemplateResponse(
+        request,
+        "calendar.html",
+        {
+            "cal": cal_data,
+            "current_scope": scope,
+            "active_tab": "calendar",
+        },
+    )
+
+
+@router.get("/api/calendar/feed.ics")
+async def api_calendar_feed(scope: str = "fidel"):
+    """Exporta el feed iCalendar (.ics) sincronizable con Google Calendar."""
+    from fastapi.responses import Response
+
+    ics_text = project_workflow.generate_ics_calendar(scope=scope)
+    return Response(
+        content=ics_text,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="tasks_{scope}.ics"'},
+    )
+
+
+
 @router.post("/api/tasks/move")
 async def api_move_stage(req: MoveStageRequest):
     """Mueve una tarea de etapa."""
@@ -123,6 +200,8 @@ async def api_create_task(req: CreateTaskRequest):
             story_points=req.story_points,
             estimated_hours=req.estimated_hours,
             target_date=req.target_date,
+            start_time=req.start_time,
+            end_time=req.end_time,
             subtasks=req.subtasks,
         )
         return {"status": "ok", "task": created}

@@ -5,7 +5,7 @@
 {% block content %}
 <!-- Top Stats Banner -->
 <section class="stats-banner">
-  <div class="stat-card">
+  <div class="stat-card" title="Total de tareas activas registradas en este espacio">
     <div>
       <div class="stat-label">Total de Tareas</div>
       <div class="stat-value">{{ board.stats.total_tasks }}</div>
@@ -13,7 +13,7 @@
     <span style="font-size: 1.8rem; opacity: 0.8;">📋</span>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card" title="Suma total de puntos de historia estimados">
     <div>
       <div class="stat-label">Story Points Totales</div>
       <div class="stat-value">{{ board.stats.total_story_points }} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span></div>
@@ -21,7 +21,7 @@
     <span style="font-size: 1.8rem; opacity: 0.8;">🎯</span>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card" title="Puntos de historia completados en la etapa de Completado">
     <div>
       <div class="stat-label">Story Points Completados</div>
       <div class="stat-value" style="color: var(--accent-emerald);">{{ board.stats.completed_story_points }} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span></div>
@@ -29,7 +29,7 @@
     <span style="font-size: 1.8rem; opacity: 0.8;">🏆</span>
   </div>
 
-  <div class="stat-card">
+  <div class="stat-card" title="Porcentaje de avance basado en Story Points completados">
     <div style="width: 100%;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span class="stat-label">Progreso del Flujo</span>
@@ -47,12 +47,14 @@
   <!-- Scope Selector Chips -->
   <div class="scope-chips">
     <a href="/kanban?scope=all{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}" 
-       class="chip {% if current_scope == 'all' %}active{% endif %}">
+       class="chip {% if current_scope == 'all' %}active{% endif %}"
+       title="Ver tareas de todos los espacios y proyectos">
        🌐 Todos
     </a>
     {% for sec in board.sections %}
     <a href="/kanban?scope={{ sec.id }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}" 
-       class="chip {% if current_scope == sec.id %}active{% endif %}">
+       class="chip {% if current_scope == sec.id %}active{% endif %}"
+       title="Filtrar por espacio {{ sec.name }}">
        {% if sec.icon == 'zap' %}⚡{% elif sec.icon == 'home' %}🏠{% elif sec.icon == 'heart' %}❤️{% elif sec.icon == 'tool' %}🛠️{% else %}📌{% endif %}
        {{ sec.name }}
     </a>
@@ -62,14 +64,26 @@
   <!-- Search & Priority Filters -->
   <form method="GET" action="/kanban" class="search-filter-box">
     <input type="hidden" name="scope" value="{{ current_scope }}">
-    <input type="text" name="search" class="search-input" placeholder="Buscar tareas..." value="{{ search_query }}">
+    <input type="text" name="search" class="search-input" placeholder="Buscar por título, ID o descripción..." value="{{ search_query }}" title="Buscar en las tareas">
 
-    <select name="priority" class="select-filter" onchange="this.form.submit()">
+    <select name="priority" class="select-filter" onchange="this.form.submit()" title="Filtrar por prioridad">
       <option value="" {% if not current_priority %}selected{% endif %}>Todas las Prioridades</option>
+      <option value="Urgente" {% if current_priority == 'Urgente' %}selected{% endif %}>Urgente</option>
       <option value="Alta" {% if current_priority == 'Alta' %}selected{% endif %}>Alta</option>
       <option value="Media" {% if current_priority == 'Media' %}selected{% endif %}>Media</option>
       <option value="Baja" {% if current_priority == 'Baja' %}selected{% endif %}>Baja</option>
     </select>
+
+    <div style="display:flex; gap:0.4rem;">
+      <a href="/table?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Tabla">
+        <span>📑</span>
+        <span>Tabla</span>
+      </a>
+      <a href="/calendar?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Calendario">
+        <span>📅</span>
+        <span>Calendario</span>
+      </a>
+    </div>
   </form>
 </section>
 
@@ -84,9 +98,9 @@
         <span class="column-title">{{ stage.name }}</span>
       </div>
       <div style="display:flex; align-items:center; gap:0.4rem;">
-        <span class="column-badge">{{ board.stats.counts_by_stage[stage.id] }}</span>
+        <span class="column-badge" title="Cantidad de tareas en {{ stage.name }}">{{ board.stats.counts_by_stage[stage.id] }}</span>
         {% if board.stats.sp_by_stage[stage.id] > 0 %}
-        <span class="column-sp-badge">{{ board.stats.sp_by_stage[stage.id] }} SP</span>
+        <span class="column-sp-badge" title="Suma de Story Points">{{ board.stats.sp_by_stage[stage.id] }} SP</span>
         {% endif %}
       </div>
     </div>
@@ -100,10 +114,17 @@
            data-task-scope="{{ task.scope }}"
            data-current-stage="{{ stage.id }}"
            data-story-points="{{ task.story_points or 0 }}"
-           onclick="if(!event.target.closest('.card-actions')) openTaskDetailModal({{ task | tojson | forceescape }})">
+           oncontextmenu="handleCardContextMenu(event, {{ task | tojson | forceescape }})"
+           onclick="if(!event.target.closest('.card-actions')) openTaskDetailModal({{ task | tojson | forceescape }})"
+           title="Click para ver/editar. Click derecho para menú de opciones con IA">
         
         <div class="card-top">
-          <span class="card-title">{{ task.title }}</span>
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            <span class="card-scope-badge" style="background:rgba(59,130,246,0.18); color:#93c5fd; font-weight:700;">
+              {{ task.code }}
+            </span>
+            <span class="card-title">{{ task.title }}</span>
+          </div>
           <span class="card-scope-badge">{{ task.scope }}</span>
         </div>
 
@@ -115,22 +136,42 @@
           <span class="priority-pill priority-{{ task.priority | lower }}">{{ task.priority }}</span>
 
           {% if task.story_points %}
-          <span class="sp-badge">🎯 {{ task.story_points }} SP</span>
+          <span class="sp-badge" title="Story Points estimados">🎯 {{ task.story_points }} SP</span>
           {% endif %}
 
           {% if task.subtasks_count > 0 %}
-          <span class="subtasks-progress">✓ {{ task.subtasks_completed }}/{{ task.subtasks_count }}</span>
+          <span class="subtasks-progress" title="Subtareas completadas">✓ {{ task.subtasks_completed }}/{{ task.subtasks_count }}</span>
+          {% endif %}
+
+          {% if task.target_date %}
+          <span style="font-size:0.7rem; color:var(--text-muted);" title="Fecha límite o de bloqueo">
+            🗓 {{ task.target_date }}
+          </span>
           {% endif %}
         </div>
 
-        <!-- Quick Move Select (optimized for touch / mobile) -->
+        <!-- Quick Move & Quick AI Action Bar -->
         <div class="card-actions" onclick="event.stopPropagation()">
-          <span style="font-size:0.7rem; color:var(--text-muted)">Mover:</span>
-          <select class="quick-move-select" onchange="handleQuickStageChange(this)">
-            {% for s in board.stages %}
-            <option value="{{ s.id }}" {% if s.id == stage.id %}selected{% endif %}>{{ s.name }}</option>
-            {% endfor %}
-          </select>
+          <div style="display:flex; align-items:center; gap:0.3rem;">
+            <button class="btn btn-secondary btn-sm" style="padding:0.15rem 0.45rem; font-size:0.7rem;" 
+                    onclick="analyzeTaskWithAi('{{ task.id }}', '{{ task.scope }}')" 
+                    title="Analizar tarea con Gemini (complejidad, subtareas y sugerencia de recurrencia)">
+              ✨ IA
+            </button>
+            <a href="{{ task.google_cal_url }}" target="_blank" class="btn btn-secondary btn-sm" style="padding:0.15rem 0.45rem; font-size:0.7rem; text-decoration:none;" 
+               title="Bloquear horario en Google Calendar">
+              📅
+            </a>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:0.3rem;">
+            <span style="font-size:0.7rem; color:var(--text-muted)">Mover:</span>
+            <select class="quick-move-select" onchange="handleQuickStageChange(this)" title="Mover a otra etapa">
+              {% for s in board.stages %}
+              <option value="{{ s.id }}" {% if s.id == stage.id %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
       </div>
       {% endfor %}

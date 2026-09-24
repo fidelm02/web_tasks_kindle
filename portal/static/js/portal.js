@@ -1,7 +1,12 @@
 /**
  * Kindle Tasks Pro Portal - Interactive Engine
- * Handles Drag & Drop, AJAX updates, Stage transitions, Crons triggers, and Gemini AI analysis
+ * Handles Drag & Drop, AJAX updates, Stage transitions, Crons triggers,
+ * Gemini AI analysis for new and existing tasks, Table view, Calendar & Google Calendar integration.
  */
+
+let activeDetailTask = null;
+let currentExistingAnalysis = null;
+let contextMenuTargetTask = null;
 
 // Toast Notifications Helper
 function showToast(message, type = 'success') {
@@ -120,7 +125,7 @@ function initKanbanDragAndDrop() {
   });
 }
 
-// Quick Stage Select Change
+// Quick Stage Select Change (Kanban)
 async function handleQuickStageChange(selectElem) {
   const card = selectElem.closest('.task-card');
   const taskId = card.dataset.taskId;
@@ -151,6 +156,28 @@ async function handleQuickStageChange(selectElem) {
     }
   } catch (err) {
     showToast('Error de conexión', 'error');
+  }
+}
+
+// Quick Stage Select Change (Table View)
+async function handleTableStageChange(taskId, scope, newStage) {
+  try {
+    const res = await fetch('/api/tasks/move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id: taskId,
+        target_stage: newStage,
+        scope: scope
+      })
+    });
+    if (res.ok) {
+      showToast('Etapa actualizada');
+    } else {
+      showToast('Error al actualizar etapa', 'error');
+    }
+  } catch (err) {
+    showToast('Error de red', 'error');
   }
 }
 
@@ -208,7 +235,9 @@ async function submitCreateTask(event) {
     scope: formData.get('scope') || 'fidel',
     story_points: formData.get('story_points') ? parseFloat(formData.get('story_points')) : null,
     estimated_hours: formData.get('estimated_hours') ? parseFloat(formData.get('estimated_hours')) : null,
-    target_date: formData.get('target_date') || null
+    target_date: formData.get('target_date') || null,
+    start_time: formData.get('start_time') || null,
+    end_time: formData.get('end_time') || null
   };
 
   try {
@@ -244,6 +273,8 @@ async function deleteTask(taskId, scope) {
       showToast('Tarea eliminada');
       const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
       if (card) card.remove();
+      const row = document.getElementById(`table-row-${taskId}`);
+      if (row) row.remove();
       updateColumnCounts();
       closeModal('modal-task-detail');
     } else {
@@ -257,6 +288,10 @@ async function deleteTask(taskId, scope) {
 // Task Details Modal Populate
 function openTaskDetailModal(taskJson) {
   const task = typeof taskJson === 'string' ? JSON.parse(taskJson) : taskJson;
+  activeDetailTask = task;
+
+  const codeBadge = document.getElementById('detail-code-badge');
+  if (codeBadge) codeBadge.textContent = task.code || 'ID';
 
   document.getElementById('detail-task-id').value = task.id;
   document.getElementById('detail-scope').value = task.scope || 'fidel';
@@ -267,6 +302,15 @@ function openTaskDetailModal(taskJson) {
   document.getElementById('detail-sp').value = task.story_points || '';
   document.getElementById('detail-hours').value = task.estimated_hours || '';
   document.getElementById('detail-date').value = task.target_date || '';
+
+  const startTimeElem = document.getElementById('detail-start-time');
+  if (startTimeElem) startTimeElem.value = task.start_time || '';
+
+  const endTimeElem = document.getElementById('detail-end-time');
+  if (endTimeElem) endTimeElem.value = task.end_time || '';
+
+  const gcalBtn = document.getElementById('detail-gcal-link');
+  if (gcalBtn) gcalBtn.href = task.google_cal_url || '#';
 
   // Render subtasks
   const subtasksList = document.getElementById('detail-subtasks-list');
@@ -293,6 +337,13 @@ function openTaskDetailModal(taskJson) {
   openModal('modal-task-detail');
 }
 
+// Trigger AI Analysis from inside detail modal
+function triggerAnalyzeFromDetailModal() {
+  if (!activeDetailTask) return;
+  closeModal('modal-task-detail');
+  analyzeTaskWithAi(activeDetailTask.id, activeDetailTask.scope);
+}
+
 // Submit Task Detail Updates
 async function submitUpdateTask(event) {
   event.preventDefault();
@@ -308,7 +359,9 @@ async function submitUpdateTask(event) {
     priority: formData.get('priority'),
     story_points: formData.get('story_points') ? parseFloat(formData.get('story_points')) : null,
     estimated_hours: formData.get('estimated_hours') ? parseFloat(formData.get('estimated_hours')) : null,
-    target_date: formData.get('target_date') || null
+    target_date: formData.get('target_date') || null,
+    start_time: formData.get('start_time') || null,
+    end_time: formData.get('end_time') || null
   };
 
   try {
@@ -348,7 +401,6 @@ async function triggerCronsNow() {
       const msg = `Crones ejecutados: ${summary.generated_count} creadas, ${summary.skipped_count} omitidas (deduplicadas)`;
       showToast(msg, 'success');
       
-      // If modal or log exists, show detailed alert
       alert(`Resultado del Motor de Crones:\n\n• Fecha: ${summary.date}\n• Reglas evaluadas: ${summary.evaluated_rules}\n• Tareas generadas: ${summary.generated_count}\n• Omitidas por duplicación: ${summary.skipped_count}\n\n${summary.skipped.map(s => ` - Omitida "${s.title}": ${s.reason}`).join('\n')}`);
       setTimeout(() => location.reload(), 600);
     } else {
@@ -399,6 +451,77 @@ async function deleteRule(ruleId) {
   }
 }
 
+// Recurrent Rule Edit Modal Populate
+function openEditRuleModal(ruleJson) {
+  const rule = typeof ruleJson === 'string' ? JSON.parse(ruleJson) : ruleJson;
+  document.getElementById('edit-rule-id').value = rule.id;
+  document.getElementById('edit-rule-title').value = rule.title || '';
+  document.getElementById('edit-rule-desc').value = rule.description || '';
+  document.getElementById('edit-rule-scope').value = rule.scope || 'fidel';
+  document.getElementById('edit-rule-priority').value = rule.priority || 'Media';
+  document.getElementById('edit-rule-freq').value = rule.frequency || 'daily';
+  document.getElementById('edit-rule-sp').value = rule.story_points || '';
+  document.getElementById('edit-rule-interval').value = rule.interval_days || 1;
+
+  // Toggle custom days vs interval display
+  const customGroup = document.getElementById('edit-custom-days-group');
+  const intervalGroup = document.getElementById('edit-interval-days-group');
+  if (customGroup) customGroup.style.display = rule.frequency === 'custom_days' ? 'block' : 'none';
+  if (intervalGroup) intervalGroup.style.display = rule.frequency === 'interval_days' ? 'block' : 'none';
+
+  // Set day checkboxes
+  const daysOfWeek = rule.days_of_week || [];
+  document.querySelectorAll('input[name="edit_custom_day"]').forEach(cb => {
+    cb.checked = daysOfWeek.includes(parseInt(cb.value));
+  });
+
+  openModal('modal-edit-rule');
+}
+
+// Submit Recurrent Rule Edit
+async function submitUpdateRule(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const ruleId = formData.get('rule_id');
+
+  const freq = formData.get('frequency');
+  let daysOfWeek = [0, 1, 2, 3, 4, 5, 6];
+  if (freq === 'weekdays') {
+    daysOfWeek = [0, 1, 2, 3, 4];
+  } else if (freq === 'custom_days') {
+    daysOfWeek = Array.from(form.querySelectorAll('input[name="edit_custom_day"]:checked')).map(cb => parseInt(cb.value));
+  }
+
+  const payload = {
+    title: formData.get('title'),
+    description: formData.get('description') || '',
+    scope: formData.get('scope') || 'fidel',
+    priority: formData.get('priority') || 'Media',
+    frequency: freq,
+    days_of_week: daysOfWeek,
+    interval_days: parseInt(formData.get('interval_days') || 1),
+    story_points: formData.get('story_points') ? parseFloat(formData.get('story_points')) : null
+  };
+
+  try {
+    const res = await fetch(`/api/recurrent/rules/${ruleId}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showToast('Regla actualizada con éxito');
+      closeModal('modal-edit-rule');
+      setTimeout(() => location.reload(), 400);
+    } else {
+      showToast('Error al actualizar regla', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
 // Recurrent Rule Add Submit
 async function submitCreateRule(event) {
   event.preventDefault();
@@ -442,7 +565,228 @@ async function submitCreateRule(event) {
   }
 }
 
-// AI Effort Estimator Analyzer
+// AI Analysis for Existing Task
+async function analyzeTaskWithAi(taskId, scope) {
+  openModal('modal-ai-existing-analysis');
+  const loading = document.getElementById('ai-existing-loading');
+  const content = document.getElementById('ai-existing-content');
+  const footer = document.getElementById('ai-existing-footer');
+
+  if (loading) loading.style.display = 'block';
+  if (content) content.style.display = 'none';
+  if (footer) footer.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/estimator/analyze-existing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: taskId, scope: scope })
+    });
+    const data = await res.json();
+    if (res.ok && data.status === 'ok') {
+      currentExistingAnalysis = data;
+      displayExistingTaskAnalysis(data.estimation, data.task);
+    } else {
+      showToast('No se pudo analizar la tarea con Gemini', 'error');
+      closeModal('modal-ai-existing-analysis');
+    }
+  } catch (err) {
+    showToast('Error de conexión con el servicio IA', 'error');
+    closeModal('modal-ai-existing-analysis');
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function displayExistingTaskAnalysis(est, task) {
+  const content = document.getElementById('ai-existing-content');
+  const footer = document.getElementById('ai-existing-footer');
+  if (content) content.style.display = 'flex';
+  if (footer) footer.style.display = 'flex';
+
+  document.getElementById('ai-task-target-title').textContent = `[${task.code || 'ID'}] ${task.title}`;
+  document.getElementById('ai-task-complexity').textContent = est.complexity || 'Media';
+  document.getElementById('ai-task-sp').textContent = `${est.story_points || 2} SP`;
+  document.getElementById('ai-task-hours').textContent = `${est.estimated_hours || 3}h`;
+  document.getElementById('ai-task-summary').textContent = est.summary || '';
+
+  // Recurrent Recommendation
+  const recHeader = document.getElementById('ai-task-recurrent-header');
+  const recReason = document.getElementById('ai-task-recurrent-reason');
+  const convertBox = document.getElementById('ai-task-convert-box');
+
+  if (est.is_recurrent_candidate) {
+    recHeader.innerHTML = '✨ ¡Candidato ideal para automatización recurrente!';
+    recHeader.style.color = '#a5b4fc';
+    convertBox.style.display = 'block';
+  } else {
+    recHeader.innerHTML = '📌 Tarea puntual / No recurrente';
+    recHeader.style.color = 'var(--text-secondary)';
+    convertBox.style.display = 'none';
+  }
+  recReason.textContent = est.recurrent_reasoning || 'Evaluación de periodicidad completada.';
+
+  // Render Subtasks
+  const subtasksList = document.getElementById('ai-task-subtasks');
+  subtasksList.innerHTML = '';
+  (est.subtasks || []).forEach(st => {
+    const div = document.createElement('div');
+    div.className = 'checklist-item';
+    div.innerHTML = `<span>✓</span> <span>${st}</span>`;
+    subtasksList.appendChild(div);
+  });
+
+  // Render Risks
+  const risksList = document.getElementById('ai-task-risks');
+  risksList.innerHTML = '';
+  (est.risks_and_considerations || []).forEach(r => {
+    const li = document.createElement('li');
+    li.style.fontSize = '0.825rem';
+    li.style.color = 'var(--text-secondary)';
+    li.style.marginBottom = '0.25rem';
+    li.textContent = r;
+    risksList.appendChild(li);
+  });
+}
+
+// Apply Analysis in-place to Existing Task
+async function applyAiAnalysisToExistingTask() {
+  if (!currentExistingAnalysis) return;
+  const { estimation, task } = currentExistingAnalysis;
+
+  try {
+    const res = await fetch('/api/estimator/apply-to-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id: task.id,
+        scope: task.scope,
+        story_points: estimation.story_points,
+        estimated_hours: estimation.estimated_hours,
+        subtasks: estimation.subtasks || [],
+        summary: estimation.summary
+      })
+    });
+    if (res.ok) {
+      showToast('Estimación aplicada a la tarea exitosamente', 'success');
+      closeModal('modal-ai-existing-analysis');
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast('Error al aplicar estimación', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
+// Convert Current Task to Recurrent Rule
+async function convertCurrentTaskToRecurrent() {
+  if (!currentExistingAnalysis) return;
+  const { estimation, task } = currentExistingAnalysis;
+
+  const freq = estimation.suggested_frequency && estimation.suggested_frequency !== 'none'
+    ? estimation.suggested_frequency
+    : 'daily';
+
+  try {
+    const res = await fetch('/api/estimator/convert-to-recurrent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id: task.id,
+        scope: task.scope,
+        frequency: freq,
+        story_points: estimation.story_points
+      })
+    });
+    if (res.ok) {
+      showToast('¡Regla recurrente creada con éxito!', 'success');
+      closeModal('modal-ai-existing-analysis');
+      setTimeout(() => {
+        window.location.href = '/recurrent';
+      }, 700);
+    } else {
+      showToast('Error al crear regla recurrente', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
+// Context Menu (Right Click on Card)
+function handleCardContextMenu(event, task) {
+  event.preventDefault();
+  contextMenuTargetTask = task;
+  const menu = document.getElementById('card-context-menu');
+  if (!menu) return;
+
+  menu.style.display = 'block';
+  menu.style.left = `${Math.min(event.clientX, window.innerWidth - 230)}px`;
+  menu.style.top = `${Math.min(event.clientY, window.innerHeight - 200)}px`;
+}
+
+function contextMenuAction(action) {
+  const menu = document.getElementById('card-context-menu');
+  if (menu) menu.style.display = 'none';
+  if (!contextMenuTargetTask) return;
+
+  const task = contextMenuTargetTask;
+  if (action === 'analyze') {
+    analyzeTaskWithAi(task.id, task.scope);
+  } else if (action === 'edit') {
+    openTaskDetailModal(task);
+  } else if (action === 'calendar') {
+    window.open(task.google_cal_url || '#', '_blank');
+  } else if (action === 'recurrent') {
+    analyzeTaskWithAi(task.id, task.scope);
+  } else if (action === 'delete') {
+    deleteTask(task.id, task.scope);
+  }
+}
+
+// Calendar Helpers
+function quickScheduleDay(dateStr) {
+  openModal('modal-create-task');
+  const dateInput = document.querySelector('#modal-create-task input[name="target_date"]');
+  if (dateInput) dateInput.value = dateStr;
+}
+
+async function quickAssignToday(taskId, scope) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  try {
+    const res = await fetch('/api/tasks/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_id: taskId,
+        scope: scope,
+        target_date: todayStr,
+        start_time: '10:00',
+        end_time: '11:00'
+      })
+    });
+    if (res.ok) {
+      showToast('Tarea programada para hoy a las 10:00');
+      setTimeout(() => location.reload(), 400);
+    } else {
+      showToast('Error al programar tarea', 'error');
+    }
+  } catch (err) {
+    showToast('Error de red', 'error');
+  }
+}
+
+// Close Context Menu on Global Click
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('card-context-menu');
+  if (menu && menu.style.display === 'block') {
+    if (!e.target.closest('#card-context-menu')) {
+      menu.style.display = 'none';
+    }
+  }
+});
+
+// AI Effort Estimator Analyzer (Estimator Page)
 let currentEstimation = null;
 
 async function analyzeEffortWithAI(event) {

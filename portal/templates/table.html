@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Vista Tabla | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<!-- Controls & Filters Bar -->
+<section class="control-bar">
+  <!-- Scope Selector Chips -->
+  <div class="scope-chips">
+    <a href="/table?scope=all{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_stage %}&stage={{ current_stage }}{% endif %}" 
+       class="chip {% if current_scope == 'all' %}active{% endif %}"
+       title="Ver tareas de todos los espacios y proyectos">
+       🌐 Todos
+    </a>
+    {% for sec in data.sections %}
+    <a href="/table?scope={{ sec.id }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_stage %}&stage={{ current_stage }}{% endif %}" 
+       class="chip {% if current_scope == sec.id %}active{% endif %}"
+       title="Filtrar por espacio {{ sec.name }}">
+       {% if sec.icon == 'zap' %}⚡{% elif sec.icon == 'home' %}🏠{% elif sec.icon == 'heart' %}❤️{% elif sec.icon == 'tool' %}🛠️{% else %}📌{% endif %}
+       {{ sec.name }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search & Priority Filters -->
+  <form method="GET" action="/table" class="search-filter-box">
+    <input type="hidden" name="scope" value="{{ current_scope }}">
+    <input type="text" name="search" class="search-input" placeholder="Buscar por título, ID o descripción..." value="{{ search_query }}" title="Buscar texto en las tareas">
+
+    <select name="stage" class="select-filter" onchange="this.form.submit()" title="Filtrar por etapa del flujo">
+      <option value="" {% if not current_stage %}selected{% endif %}>Todas las Etapas</option>
+      {% for s in data.stages %}
+      <option value="{{ s.id }}" {% if current_stage == s.id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="priority" class="select-filter" onchange="this.form.submit()" title="Filtrar por prioridad">
+      <option value="" {% if not current_priority %}selected{% endif %}>Todas las Prioridades</option>
+      <option value="Urgente" {% if current_priority == 'Urgente' %}selected{% endif %}>Urgente</option>
+      <option value="Alta" {% if current_priority == 'Alta' %}selected{% endif %}>Alta</option>
+      <option value="Media" {% if current_priority == 'Media' %}selected{% endif %}>Media</option>
+      <option value="Baja" {% if current_priority == 'Baja' %}selected{% endif %}>Baja</option>
+    </select>
+
+    <select name="sort_by" class="select-filter" onchange="this.form.submit()" title="Ordenar listado">
+      <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Más Recientes</option>
+      <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Por Prioridad</option>
+      <option value="story_points" {% if sort_by == 'story_points' %}selected{% endif %}>Por Story Points</option>
+      <option value="target_date" {% if sort_by == 'target_date' %}selected{% endif %}>Por Fecha Límite</option>
+      <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Alfabético (Título)</option>
+    </select>
+  </form>
+</section>
+
+<!-- Summary Counter Bar -->
+<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.875rem; color:var(--text-secondary); padding: 0 0.25rem;">
+  <span>Mostrando <strong>{{ data.total_count }}</strong> tareas (Total: <strong>{{ data.total_sp }} SP</strong>)</span>
+  <div style="display:flex; gap:0.5rem;">
+    <a href="/kanban?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Tablero Jira">
+      <span>📊</span>
+      <span>Ver como Tablero</span>
+    </a>
+    <a href="/calendar?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Calendario y Bloqueo de Horas">
+      <span>📅</span>
+      <span>Ver como Calendario</span>
+    </a>
+  </div>
+</div>
+
+<!-- Structured Table View -->
+<div class="table-container">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width: 100px;">Clave</th>
+        <th>Título y Descripción</th>
+        <th style="width: 110px;">Espacio</th>
+        <th style="width: 140px;">Etapa</th>
+        <th style="width: 110px;">Prioridad</th>
+        <th style="width: 80px; text-align:center;">SP</th>
+        <th style="width: 90px; text-align:center;">Horas</th>
+        <th style="width: 160px;">Fecha & Bloqueo</th>
+        <th style="width: 90px; text-align:center;">Subtareas</th>
+        <th style="width: 170px; text-align:right;">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in data.tasks %}
+      <tr class="table-row" id="table-row-{{ task.id }}">
+        <td>
+          <span class="card-scope-badge" style="background:rgba(59,130,246,0.18); color:#93c5fd; font-weight:700;">
+            {{ task.code }}
+          </span>
+        </td>
+
+        <td>
+          <div style="display:flex; flex-direction:column; gap:0.2rem;">
+            <a href="javascript:void(0)" onclick="openTaskDetailModal({{ task | tojson | forceescape }})" style="color:var(--text-primary); text-decoration:none; font-weight:600;" title="Ver y editar detalles">
+              {{ task.title }}
+            </a>
+            {% if task.description %}
+            <span style="font-size:0.78rem; color:var(--text-muted); line-height:1.3; max-width:380px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              {{ task.description }}
+            </span>
+            {% endif %}
+          </div>
+        </td>
+
+        <td>
+          <span class="card-scope-badge">{{ task.scope }}</span>
+        </td>
+
+        <td>
+          <select class="quick-move-select" style="width:100%;" onchange="handleTableStageChange('{{ task.id }}', '{{ task.scope }}', this.value)" title="Cambiar etapa de la tarea">
+            {% for s in data.stages %}
+            <option value="{{ s.id }}" {% if task.stage == s.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </td>
+
+        <td>
+          <span class="priority-pill priority-{{ task.priority | lower }}">{{ task.priority }}</span>
+        </td>
+
+        <td style="text-align:center;">
+          {% if task.story_points %}
+          <span class="sp-badge">{{ task.story_points }}</span>
+          {% else %}
+          <span style="color:var(--text-muted); font-size:0.8rem;">-</span>
+          {% endif %}
+        </td>
+
+        <td style="text-align:center; font-size:0.85rem; color:var(--text-secondary);">
+          {% if task.estimated_hours %}
+          {{ task.estimated_hours }}h
+          {% else %}
+          <span style="color:var(--text-muted);">-</span>
+          {% endif %}
+        </td>
+
+        <td>
+          <div style="font-size:0.8rem; display:flex; flex-direction:column;">
+            <span>{{ task.target_date or 'Sin fecha' }}</span>
+            {% if task.start_time %}
+            <span style="color:var(--accent-primary); font-size:0.75rem;">⏰ {{ task.start_time }}{% if task.end_time %} - {{ task.end_time }}{% endif %}</span>
+            {% endif %}
+          </div>
+        </td>
+
+        <td style="text-align:center;">
+          {% if task.subtasks_count > 0 %}
+          <span class="subtasks-progress" style="justify-content:center;">✓ {{ task.subtasks_completed }}/{{ task.subtasks_count }}</span>
+          {% else %}
+          <span style="color:var(--text-muted); font-size:0.8rem;">-</span>
+          {% endif %}
+        </td>
+
+        <td style="text-align:right;">
+          <div style="display:inline-flex; align-items:center; gap:0.35rem;">
+            <button class="btn btn-secondary btn-sm" onclick="analyzeTaskWithAi('{{ task.id }}', '{{ task.scope }}')" title="Analizar esta tarea con Inteligencia Artificial (Gemini)">
+              ✨ IA
+            </button>
+            <a href="{{ task.google_cal_url }}" target="_blank" class="btn btn-secondary btn-sm" title="Bloquear tiempo en Google Calendar">
+              📅
+            </a>
+            <button class="btn btn-secondary btn-sm" onclick="openTaskDetailModal({{ task | tojson | forceescape }})" title="Editar tarea">
+              ✏️
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteTask('{{ task.id }}', '{{ task.scope }}')" title="Eliminar tarea">
+              🗑
+            </button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="10" style="text-align:center; padding:3rem; color:var(--text-muted);">
+          No se encontraron tareas con los filtros actuales.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

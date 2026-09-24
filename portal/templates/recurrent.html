@@ -11,11 +11,13 @@
     </p>
   </div>
   <div style="display:flex; gap:0.75rem;">
-    <button class="btn btn-secondary" onclick="triggerCronsNow()">
+    <button class="btn btn-secondary" onclick="triggerCronsNow()" 
+            title="Evalúa todas las reglas periódicas y crea automáticamente las tareas correspondientes para hoy, omitiendo las que ya existan para evitar duplicados.">
       <span>⚡</span>
       <span>Ejecutar Crones Ahora</span>
     </button>
-    <button class="btn btn-primary" onclick="openModal('modal-create-rule')">
+    <button class="btn btn-primary" onclick="openModal('modal-create-rule')" 
+            title="Crear una nueva regla recurrente especificando periodicidad (diaria, semanal, etc.)">
       <span>+</span>
       <span>Nueva Regla</span>
     </button>
@@ -28,7 +30,7 @@
   <div class="rule-card" id="rule-card-{{ rule.id }}">
     <div class="rule-header">
       <span class="rule-title">{{ rule.title }}</span>
-      <label class="rule-switch" title="Activar / Pausar">
+      <label class="rule-switch" title="Activar o pausar esta regla recurrente">
         <input type="checkbox" {% if rule.enabled %}checked{% endif %} onchange="toggleRule('{{ rule.id }}')">
         <span class="slider"></span>
       </label>
@@ -42,7 +44,7 @@
       <span class="card-scope-badge">{{ rule.scope }}</span>
       <span class="priority-pill priority-{{ rule.priority | lower }}">{{ rule.priority }}</span>
 
-      <span class="frequency-tag">
+      <span class="frequency-tag" title="Frecuencia configurada">
         {% if rule.frequency == 'daily' %}
           📅 Todos los días
         {% elif rule.frequency == 'weekdays' %}
@@ -57,15 +59,20 @@
       </span>
 
       {% if rule.story_points %}
-      <span class="sp-badge">🎯 {{ rule.story_points }} SP</span>
+      <span class="sp-badge" title="Story Points asignados a cada tarea generada">🎯 {{ rule.story_points }} SP</span>
       {% endif %}
     </div>
 
     <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.06); padding-top:0.6rem; margin-top:0.3rem;">
       <span>Última ejecución: <strong>{{ rule.last_generated_at or 'Pendiente' }}</strong></span>
-      <button class="btn btn-danger btn-sm" onclick="deleteRule('{{ rule.id }}')" title="Eliminar regla">
-        🗑
-      </button>
+      <div style="display:flex; gap:0.35rem;">
+        <button class="btn btn-secondary btn-sm" onclick="openEditRuleModal({{ rule | tojson | forceescape }})" title="Editar periodicidad y parámetros de esta regla">
+          ✏️
+        </button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRule('{{ rule.id }}')" title="Eliminar regla permanentemente">
+          🗑
+        </button>
+      </div>
     </div>
   </div>
   {% endfor %}
@@ -76,7 +83,7 @@
   <div class="modal-dialog">
     <div class="modal-header">
       <h3 class="modal-title">Nueva Regla de Tarea Recurrente</h3>
-      <button class="modal-close" onclick="closeModal('modal-create-rule')">&times;</button>
+      <button class="modal-close" onclick="closeModal('modal-create-rule')" title="Cerrar">&times;</button>
     </div>
     <form onsubmit="submitCreateRule(event)">
       <div class="modal-body">
@@ -156,6 +163,97 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-rule')">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar Regla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Recurrent Rule -->
+<div id="modal-edit-rule" class="modal-overlay">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">Editar Regla de Tarea Recurrente</h3>
+      <button class="modal-close" onclick="closeModal('modal-edit-rule')" title="Cerrar">&times;</button>
+    </div>
+    <form onsubmit="submitUpdateRule(event)">
+      <input type="hidden" id="edit-rule-id" name="rule_id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Título de la Tarea *</label>
+          <input type="text" id="edit-rule-title" name="title" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea id="edit-rule-desc" name="description" class="form-control"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Espacio / Scope</label>
+            <select id="edit-rule-scope" name="scope" class="form-control">
+              <option value="fidel">Fidel</option>
+              <option value="casa">Casa</option>
+              <option value="lau">Lau</option>
+              <option value="proyecto-reforma">Proyecto Reforma</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Prioridad</label>
+            <select id="edit-rule-priority" name="priority" class="form-control">
+              <option value="Baja">Baja</option>
+              <option value="Media">Media</option>
+              <option value="Alta">Alta</option>
+              <option value="Urgente">Urgente</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Frecuencia de Creación</label>
+            <select id="edit-rule-freq" name="frequency" class="form-control" onchange="
+              document.getElementById('edit-custom-days-group').style.display = (this.value === 'custom_days') ? 'block' : 'none';
+              document.getElementById('edit-interval-days-group').style.display = (this.value === 'interval_days') ? 'block' : 'none';
+            ">
+              <option value="daily">Diaria (Todos los días)</option>
+              <option value="weekdays">Días laborables (Lunes a Viernes)</option>
+              <option value="custom_days">Días específicos de la semana</option>
+              <option value="interval_days">Por intervalo de días</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Story Points (Opcional)</label>
+            <input type="number" step="0.5" id="edit-rule-sp" name="story_points" class="form-control">
+          </div>
+        </div>
+
+        <!-- Custom Days Checklist -->
+        <div class="form-group" id="edit-custom-days-group" style="display:none;">
+          <label class="form-label">Días activos en la semana:</label>
+          <div style="display:flex; gap:0.6rem; flex-wrap:wrap; font-size:0.85rem;">
+            <label><input type="checkbox" name="edit_custom_day" value="0"> Lunes</label>
+            <label><input type="checkbox" name="edit_custom_day" value="1"> Martes</label>
+            <label><input type="checkbox" name="edit_custom_day" value="2"> Miércoles</label>
+            <label><input type="checkbox" name="edit_custom_day" value="3"> Jueves</label>
+            <label><input type="checkbox" name="edit_custom_day" value="4"> Viernes</label>
+            <label><input type="checkbox" name="edit_custom_day" value="5"> Sábado</label>
+            <label><input type="checkbox" name="edit_custom_day" value="6"> Domingo</label>
+          </div>
+        </div>
+
+        <!-- Interval Days Input -->
+        <div class="form-group" id="edit-interval-days-group" style="display:none;">
+          <label class="form-label">Intervalo en días:</label>
+          <input type="number" min="1" id="edit-rule-interval" name="interval_days" class="form-control" value="1">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-edit-rule')">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar Modificaciones</button>
       </div>
     </form>
   </div>

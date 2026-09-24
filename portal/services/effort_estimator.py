@@ -46,7 +46,10 @@ Debes responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructu
   "risks_and_considerations": [
     "Riesgo o dependencia relevante",
     "Consideración técnica u operativa"
-  ]
+  ],
+  "is_recurrent_candidate": false,
+  "recurrent_reasoning": "Explicación de si esta tarea tiene naturaleza repetitiva/rutina (ej. limpieza, gym, backups) o es un hito único/proyecto.",
+  "suggested_frequency": "none"
 }}
 """
 
@@ -141,6 +144,12 @@ def estimate_task_effort(
                 "summary": parsed.get("summary", "Estimación calculada automáticamente con IA."),
                 "subtasks": parsed.get("subtasks", []),
                 "risks_and_considerations": parsed.get("risks_and_considerations", []),
+                "is_recurrent_candidate": bool(parsed.get("is_recurrent_candidate", False)),
+                "recurrent_reasoning": parsed.get(
+                    "recurrent_reasoning",
+                    "No se detecta patrón de recurrencia evidente."
+                ),
+                "suggested_frequency": parsed.get("suggested_frequency", "none"),
                 "model": model_name,
             }
         except Exception as exc:
@@ -170,5 +179,8 @@ def _fallback_estimation(title: str, scope: str, err_msg: str) -> dict[str, Any]
             "Revisar dependencias técnicas antes de comenzar",
             "Alinear requerimientos con el equipo",
         ],
+        "is_recurrent_candidate": False,
+        "recurrent_reasoning": "Estimación de contingencia sin análisis profundo.",
+        "suggested_frequency": "none",
         "model": "fallback",
     }

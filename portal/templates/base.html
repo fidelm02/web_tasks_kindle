@@ -10,7 +10,7 @@
   <!-- Top Navigation Bar -->
   <header class="navbar">
     <div class="nav-container">
-      <a href="/kanban" class="brand">
+      <a href="/kanban" class="brand" title="Ir al Tablero principal de gestión">
         <div class="brand-icon">⚡</div>
         <div class="brand-text">
           <span class="brand-title">Tasks Pro</span>
@@ -20,15 +20,23 @@
 
       <!-- Main Navigation Tabs -->
       <nav class="nav-tabs">
-        <a href="/kanban" class="nav-tab {% if active_tab == 'kanban' %}active{% endif %}">
+        <a href="/kanban" class="nav-tab {% if active_tab == 'kanban' %}active{% endif %}" title="Tablero Kanban interactivo estilo Jira con 5 etapas y Story Points">
           <span>📊</span>
           <span>Tablero Jira</span>
         </a>
-        <a href="/recurrent" class="nav-tab {% if active_tab == 'recurrent' %}active{% endif %}">
+        <a href="/table" class="nav-tab {% if active_tab == 'table' %}active{% endif %}" title="Vista tabular detallada para clasificar, ordenar y filtrar tareas">
+          <span>📑</span>
+          <span>Vista Tabla</span>
+        </a>
+        <a href="/calendar" class="nav-tab {% if active_tab == 'calendar' %}active{% endif %}" title="Calendario mensual y semanal con bloqueo de horarios para tareas">
+          <span>📅</span>
+          <span>Calendario & Horas</span>
+        </a>
+        <a href="/recurrent" class="nav-tab {% if active_tab == 'recurrent' %}active{% endif %}" title="Gestión de reglas automáticas de crones y frecuencias de creación con deduplicación">
           <span>🔁</span>
           <span>Crones & Recurrentes</span>
         </a>
-        <a href="/estimator" class="nav-tab {% if active_tab == 'estimator' %}active{% endif %}">
+        <a href="/estimator" class="nav-tab {% if active_tab == 'estimator' %}active{% endif %}" title="Analizador con IA Gemini para calcular Story Points y desglose técnico">
           <span>✨</span>
           <span>Estimador IA</span>
         </a>
@@ -36,15 +44,18 @@
 
       <!-- Action Buttons -->
       <div class="nav-actions">
-        <button id="btn-run-crons" class="btn btn-secondary btn-sm" onclick="triggerCronsNow()" title="Ejecutar motor de recurrencias inmediatamente">
+        <button id="btn-run-crons" class="btn btn-secondary btn-sm" onclick="triggerCronsNow()" 
+                title="Evalúa todas las reglas periódicas y crea automáticamente las tareas correspondientes para hoy, omitiendo las que ya existan para evitar duplicados.">
           <span>⚡</span>
           <span>Ejecutar Crones</span>
         </button>
-        <button class="btn btn-primary btn-sm" onclick="openModal('modal-create-task')">
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-create-task')" 
+                title="Crear una nueva tarea asignando etapa, proyecto, prioridad, puntos de historia y horario de bloqueo.">
           <span>+</span>
           <span>Nueva Tarea</span>
         </button>
-        <a href="http://192.168.0.98:8080" target="_blank" class="btn btn-secondary btn-sm" title="Ir a la interfaz optimizada para Kindle E-Ink (Puerto 8080)">
+        <a href="http://192.168.0.98:8080" target="_blank" class="btn btn-secondary btn-sm" 
+           title="Abrir la interfaz ligera y monocromática optimizada para la pantalla de tinta electrónica del Kindle en el puerto 8080.">
           <span>📖</span>
           <span>Kindle E-Ink</span>
         </a>
@@ -62,7 +73,7 @@
     <div class="modal-dialog">
       <div class="modal-header">
         <h3 class="modal-title">Crear Nueva Tarea</h3>
-        <button class="modal-close" onclick="closeModal('modal-create-task')">&times;</button>
+        <button class="modal-close" onclick="closeModal('modal-create-task')" title="Cerrar ventana">&times;</button>
       </div>
       <form onsubmit="submitCreateTask(event)">
         <div class="modal-body">
@@ -121,15 +132,25 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Fecha Límite / Objetivo</label>
-            <input type="date" name="target_date" class="form-control">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Fecha Objetivo</label>
+              <input type="date" name="target_date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hora Inicio (Bloqueo)</label>
+              <input type="time" name="start_time" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hora Fin</label>
+              <input type="time" name="end_time" class="form-control">
+            </div>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-task')">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Crear Tarea</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-task')" title="Cancelar y cerrar">Cancelar</button>
+          <button type="submit" class="btn btn-primary" title="Guardar y registrar tarea en el sistema">Crear Tarea</button>
         </div>
       </form>
     </div>
@@ -139,8 +160,11 @@
   <div id="modal-task-detail" class="modal-overlay">
     <div class="modal-dialog">
       <div class="modal-header">
-        <h3 class="modal-title">Detalle de la Tarea</h3>
-        <button class="modal-close" onclick="closeModal('modal-task-detail')">&times;</button>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span id="detail-code-badge" class="card-scope-badge" style="font-size:0.8rem; background:rgba(59,130,246,0.2); color:#93c5fd;">ID</span>
+          <h3 class="modal-title">Detalle de la Tarea</h3>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-task-detail')" title="Cerrar ventana">&times;</button>
       </div>
       <form onsubmit="submitUpdateTask(event)">
         <input type="hidden" id="detail-task-id" name="task_id">
@@ -190,11 +214,33 @@
               <label class="form-label">Horas Estimadas</label>
               <input type="number" step="0.5" id="detail-hours" name="estimated_hours" class="form-control">
             </div>
+          </div>
 
+          <div class="form-row">
             <div class="form-group">
               <label class="form-label">Fecha Objetivo</label>
               <input type="date" id="detail-date" name="target_date" class="form-control">
             </div>
+            <div class="form-group">
+              <label class="form-label">Hora Inicio</label>
+              <input type="time" id="detail-start-time" name="start_time" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hora Fin</label>
+              <input type="time" id="detail-end-time" name="end_time" class="form-control">
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons for this Task -->
+          <div style="display:flex; flex-wrap:wrap; gap:0.5rem; background:rgba(255,255,255,0.03); padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+            <a id="detail-gcal-link" href="#" target="_blank" class="btn btn-secondary btn-sm" title="Bloquear este bloque de tiempo directamente en Google Calendar">
+              <span>📅</span>
+              <span>Bloquear en Google Calendar</span>
+            </a>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="triggerAnalyzeFromDetailModal()" title="Analizar esta tarea con Gemini para evaluar complejidad, subtareas y si debería ser recurrente">
+              <span>✨</span>
+              <span>Analizar con IA (Gemini)</span>
+            </button>
           </div>
 
           <div class="form-group">
@@ -204,15 +250,121 @@
         </div>
 
         <div class="modal-footer" style="justify-content: space-between;">
-          <button type="button" class="btn btn-danger btn-sm" onclick="deleteTask(document.getElementById('detail-task-id').value, document.getElementById('detail-scope').value)">
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteTask(document.getElementById('detail-task-id').value, document.getElementById('detail-scope').value)" title="Eliminar permanentemente esta tarea">
             <span>🗑 Eliminar Tarea</span>
           </button>
           <div style="display:flex; gap:0.5rem;">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task-detail')">Cerrar</button>
-            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task-detail')" title="Cerrar modal">Cerrar</button>
+            <button type="submit" class="btn btn-primary" title="Guardar modificaciones">Guardar Cambios</button>
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Global Modal: AI Analysis for Existing Task -->
+  <div id="modal-ai-existing-analysis" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" style="display:flex; align-items:center; gap:0.5rem;">
+          <span>✨</span>
+          <span>Análisis de Tarea con IA (Gemini 3.6 Flash)</span>
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-ai-existing-analysis')" title="Cerrar ventana">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="ai-existing-loading" style="text-align:center; padding:2rem; color:var(--accent-primary);">
+          <span style="font-size:2rem; display:inline-block; animation:spin 1s infinite linear;">⚙</span>
+          <p style="margin-top:0.5rem; font-weight:600;">Consultando Gemini y evaluando complejidad...</p>
+        </div>
+
+        <div id="ai-existing-content" style="display:none; flex-direction:column; gap:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h4 id="ai-task-target-title" style="font-size:1.1rem; font-weight:700;">Título</h4>
+            <span class="frequency-tag" id="ai-task-complexity">Media</span>
+          </div>
+
+          <!-- Points & Hours -->
+          <div class="stats-banner" style="grid-template-columns: 1fr 1fr; gap:0.75rem;">
+            <div class="stat-card" style="padding:0.75rem 1rem;">
+              <div>
+                <div class="stat-label">Story Points Calculados</div>
+                <div class="stat-value" id="ai-task-sp" style="color:var(--accent-primary);">3 SP</div>
+              </div>
+            </div>
+            <div class="stat-card" style="padding:0.75rem 1rem;">
+              <div>
+                <div class="stat-label">Tiempo Estimado</div>
+                <div class="stat-value" id="ai-task-hours" style="color:var(--accent-emerald);">4.0h</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div class="form-group">
+            <label class="form-label">Justificación técnica:</label>
+            <p id="ai-task-summary" style="font-size:0.875rem; color:var(--text-secondary); line-height:1.5; background:var(--bg-surface); padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);"></p>
+          </div>
+
+          <!-- Recurrence Recommendation Box -->
+          <div class="form-group" style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:var(--radius-md); padding:1rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem;">
+              <span style="font-size:1.2rem;">🔁</span>
+              <strong style="font-size:0.9rem;" id="ai-task-recurrent-header">¿Debería ser tarea recurrente?</strong>
+            </div>
+            <p id="ai-task-recurrent-reason" style="font-size:0.85rem; color:var(--text-secondary); line-height:1.4;"></p>
+            <div id="ai-task-convert-box" style="margin-top:0.75rem; display:none;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="convertCurrentTaskToRecurrent()" title="Crear regla de crones recurrente a partir de esta tarea">
+                <span>➕ Convertir en Regla Recurrente</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Subtasks breakdown -->
+          <div class="form-group">
+            <label class="form-label">Subtareas sugeridas:</label>
+            <div id="ai-task-subtasks" class="subtask-checklist"></div>
+          </div>
+
+          <!-- Risks -->
+          <div class="form-group">
+            <label class="form-label">Riesgos y dependencias identificados:</label>
+            <ul id="ai-task-risks" style="padding-left:1.25rem;"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" id="ai-existing-footer" style="display:none;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-ai-existing-analysis')" title="Cerrar modal">Cerrar</button>
+        <button type="button" class="btn btn-success" onclick="applyAiAnalysisToExistingTask()" title="Guardar Story Points, horas y subtareas en la tarea">
+          <span>✓ Aplicar Estimación a la Tarea</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu (Right Click) for Cards -->
+  <div id="card-context-menu" class="card-context-menu" style="display:none;">
+    <div class="menu-item" onclick="contextMenuAction('analyze')">
+      <span>✨</span>
+      <span>Analizar con IA (Gemini)</span>
+    </div>
+    <div class="menu-item" onclick="contextMenuAction('edit')">
+      <span>✏️</span>
+      <span>Ver / Editar detalles</span>
+    </div>
+    <div class="menu-item" onclick="contextMenuAction('calendar')">
+      <span>📅</span>
+      <span>Bloquear en Google Calendar</span>
+    </div>
+    <div class="menu-item" onclick="contextMenuAction('recurrent')">
+      <span>🔁</span>
+      <span>Convertir en Recurrente</span>
+    </div>
+    <div class="menu-divider"></div>
+    <div class="menu-item menu-danger" onclick="contextMenuAction('delete')">
+      <span>🗑️</span>
+      <span>Eliminar tarea</span>
     </div>
   </div>
 

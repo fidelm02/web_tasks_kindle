@@ -32,6 +32,18 @@ class CreateRuleRequest(BaseModel):
     story_points: float | None = None
 
 
+class UpdateRuleRequest(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    scope: str | None = None
+    priority: str | None = None
+    frequency: str | None = None
+    days_of_week: list[int] | None = None
+    interval_days: int | None = None
+    story_points: float | None = None
+
+
+
 @router.get("/recurrent", response_class=HTMLResponse)
 async def recurrent_view(request: Request):
     """Renderiza el panel de control de tareas recurrentes y crones."""
@@ -81,6 +93,16 @@ async def api_toggle_rule(rule_id: str):
     return {"status": "ok", "rule_id": rule_id}
 
 
+@router.post("/api/recurrent/rules/{rule_id}/update")
+async def api_update_rule(rule_id: str, req: UpdateRuleRequest):
+    """Actualiza una regla de recurrencia existente."""
+    fields = req.model_dump(exclude_unset=True)
+    updated = recurrent_engine.update_rule(rule_id, **fields)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    return {"status": "ok", "rule": updated}
+
+
 @router.post("/api/recurrent/rules/{rule_id}/delete")
 async def api_delete_rule(rule_id: str):
     """Elimina una regla de recurrencia."""
@@ -88,6 +110,7 @@ async def api_delete_rule(rule_id: str):
     if not deleted:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
     return {"status": "ok", "rule_id": rule_id}
+
 
 
 @router.post("/api/recurrent/run-now")

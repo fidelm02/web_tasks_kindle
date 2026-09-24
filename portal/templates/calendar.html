@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario & Horas | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<!-- Controls & Month Navigation -->
+<section class="control-bar" style="justify-content: space-between; align-items:center;">
+  <!-- Scope Selector Chips -->
+  <div class="scope-chips">
+    <a href="/calendar?scope=all&year={{ cal.year }}&month={{ cal.month }}" 
+       class="chip {% if current_scope == 'all' %}active{% endif %}"
+       title="Ver tareas de todos los espacios">
+       🌐 Todos
+    </a>
+    {% for sec in cal.sections %}
+    <a href="/calendar?scope={{ sec.id }}&year={{ cal.year }}&month={{ cal.month }}" 
+       class="chip {% if current_scope == sec.id %}active{% endif %}"
+       title="Filtrar calendario por {{ sec.name }}">
+       {% if sec.icon == 'zap' %}⚡{% elif sec.icon == 'home' %}🏠{% elif sec.icon == 'heart' %}❤️{% elif sec.icon == 'tool' %}🛠️{% else %}📌{% endif %}
+       {{ sec.name }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Month Navigator -->
+  <div style="display:flex; align-items:center; gap:0.75rem;">
+    {% set prev_month = cal.month - 1 if cal.month > 1 else 12 %}
+    {% set prev_year = cal.year if cal.month > 1 else cal.year - 1 %}
+    {% set next_month = cal.month + 1 if cal.month < 12 else 1 %}
+    {% set next_year = cal.year if cal.month < 12 else cal.year + 1 %}
+
+    <a href="/calendar?scope={{ current_scope }}&year={{ prev_year }}&month={{ prev_month }}" class="btn btn-secondary btn-sm" title="Mes anterior">
+      ◀
+    </a>
+    <h3 style="font-size:1.15rem; font-weight:700; min-width:180px; text-align:center;">
+      {{ cal.month_label }}
+    </h3>
+    <a href="/calendar?scope={{ current_scope }}&year={{ next_year }}&month={{ next_month }}" class="btn btn-secondary btn-sm" title="Mes siguiente">
+      ▶
+    </a>
+    <a href="/calendar?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Ir al mes actual">
+      Hoy
+    </a>
+  </div>
+
+  <!-- Feed Subscription -->
+  <div style="display:flex; gap:0.5rem;">
+    <a href="/api/calendar/feed.ics?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Descargar o sincronizar archivo iCalendar para Google Calendar, Apple Calendar o Outlook">
+      <span>📡</span>
+      <span>Feed iCal (.ics)</span>
+    </a>
+    <a href="/kanban?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Volver al Tablero Kanban">
+      <span>📊</span>
+      <span>Tablero</span>
+    </a>
+  </div>
+</section>
+
+<!-- Calendar & Unscheduled Tasks Split Grid -->
+<div class="calendar-wrapper">
+  <!-- Calendar Grid -->
+  <div class="calendar-main">
+    <div class="calendar-grid-header">
+      <div class="cal-header-cell">Lunes</div>
+      <div class="cal-header-cell">Martes</div>
+      <div class="cal-header-cell">Miércoles</div>
+      <div class="cal-header-cell">Jueves</div>
+      <div class="cal-header-cell">Viernes</div>
+      <div class="cal-header-cell">Sábado</div>
+      <div class="cal-header-cell">Domingo</div>
+    </div>
+
+    <div class="calendar-days-grid">
+      {% for week in cal.weeks %}
+        {% for day in week %}
+          <div class="cal-day-cell {% if not day.is_current_month %}other-month{% endif %} {% if day.is_today %}today{% endif %}">
+            {% if day.is_current_month %}
+            <div class="cal-day-number-bar">
+              <span class="cal-day-number">{{ day.day }}</span>
+              <button class="cal-quick-add" onclick="quickScheduleDay('{{ day.date_str }}')" title="Programar tarea en este día">+</button>
+            </div>
+
+            <div class="cal-day-events">
+              {% for task in day.tasks %}
+              <div class="cal-event-pill stage-{{ task.stage }}" 
+                   onclick="openTaskDetailModal({{ task | tojson | forceescape }})"
+                   title="Click para ver/editar. [{{ task.code }}] {{ task.title }}">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:0.2rem;">
+                  <span style="font-weight:700; font-size:0.7rem; color:#93c5fd;">{{ task.code }}</span>
+                  {% if task.start_time %}
+                  <span style="font-size:0.68rem; opacity:0.85;">⏰ {{ task.start_time }}</span>
+                  {% endif %}
+                </div>
+                <div class="cal-event-title">{{ task.title }}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                  <span class="priority-pill priority-{{ task.priority | lower }}" style="font-size:0.6rem; padding:0.1rem 0.35rem;">{{ task.priority }}</span>
+                  <a href="{{ task.google_cal_url }}" target="_blank" onclick="event.stopPropagation()" style="text-decoration:none; font-size:0.75rem;" title="Bloquear evento en Google Calendar">
+                    📅
+                  </a>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Unscheduled Tasks Side Drawer -->
+  <aside class="calendar-sidebar">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem;">
+      <h4 style="font-size:0.95rem; font-weight:700;">Sin Fecha Programada</h4>
+      <span class="column-badge">{{ cal.unscheduled_tasks | length }}</span>
+    </div>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.4rem;">
+      Selecciona una tarea para asignarle fecha y horario de bloqueo.
+    </p>
+
+    <div class="unscheduled-list">
+      {% for task in cal.unscheduled_tasks %}
+      <div class="unscheduled-card" onclick="openTaskDetailModal({{ task | tojson | forceescape }})" title="Click para asignar fecha y horario">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.72rem; font-weight:700; color:#93c5fd;">{{ task.code }}</span>
+          <span class="priority-pill priority-{{ task.priority | lower }}" style="font-size:0.62rem;">{{ task.priority }}</span>
+        </div>
+        <div style="font-size:0.85rem; font-weight:600; margin:0.25rem 0;">{{ task.title }}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.75rem; color:var(--text-muted);">
+          <span>{{ task.scope }}</span>
+          <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); quickAssignToday('{{ task.id }}', '{{ task.scope }}')" title="Programar para hoy con horario sugerido">
+            + Para Hoy
+          </button>
+        </div>
+      </div>
+      {% else %}
+      <div style="text-align:center; padding:2rem 1rem; color:var(--text-muted); font-size:0.85rem;">
+        ¡Todas las tareas tienen fecha programada! 🎉
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

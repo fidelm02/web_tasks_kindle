@@ -935,6 +935,9 @@ input:checked + .slider:before {
   .estimator-layout {
     grid-template-columns: 1fr;
   }
+  .calendar-wrapper {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 @media (max-width: 768px) {
@@ -944,6 +947,7 @@ input:checked + .slider:before {
   }
   .nav-tabs {
     justify-content: center;
+    flex-wrap: wrap;
   }
   .control-bar {
     flex-direction: column;
@@ -956,4 +960,280 @@ input:checked + .slider:before {
     max-height: none;
     min-height: auto;
   }
+  .cal-header-cell {
+    font-size: 0.65rem !important;
+    padding: 0.4rem 0.2rem !important;
+  }
 }
+
+/* ==========================================================================
+   Table / List View Styles
+   ========================================================================== */
+.table-container {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow-x: auto;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.data-table th {
+  padding: 0.85rem 1rem;
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.data-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.table-row {
+  transition: background-color var(--transition-fast);
+}
+
+.table-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ==========================================================================
+   Calendar & Time Blocking View Styles
+   ========================================================================== */
+.calendar-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.calendar-main {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cal-header-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--border-subtle);
+  gap: 1px;
+}
+
+.cal-day-cell {
+  background: var(--bg-secondary);
+  min-height: 120px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: background-color var(--transition-fast);
+}
+
+.cal-day-cell.other-month {
+  background: rgba(11, 15, 25, 0.7);
+  opacity: 0.35;
+}
+
+.cal-day-cell.today {
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.4);
+}
+
+.cal-day-number-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cal-day-number {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.cal-day-cell.today .cal-day-number {
+  color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.2);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-quick-add {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.cal-quick-add:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cal-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  max-height: 130px;
+}
+
+.cal-event-pill {
+  background: var(--bg-surface);
+  border-left: 3px solid var(--accent-primary);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.45rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.cal-event-pill:hover {
+  transform: translateY(-1px);
+  background: var(--bg-surface-elevated);
+}
+
+.cal-event-pill.stage-done {
+  border-left-color: var(--accent-emerald);
+  opacity: 0.75;
+}
+
+.cal-event-pill.stage-in_progress {
+  border-left-color: var(--accent-amber);
+}
+
+.cal-event-pill.stage-review {
+  border-left-color: var(--accent-purple);
+}
+
+.cal-event-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 1px 0;
+}
+
+.calendar-sidebar {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: calc(100vh - 200px);
+}
+
+.unscheduled-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.unscheduled-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.unscheduled-card:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   Context Menu (Right-Click) Styles
+   ========================================================================== */
+.card-context-menu {
+  position: fixed;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+  z-index: 3000;
+  min-width: 220px;
+  animation: scaleIn 0.15s ease-out;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.menu-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: white;
+}
+
+.menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 0.35rem 0;
+}
+
+.menu-item.menu-danger {
+  color: var(--accent-rose);
+}
+
+.menu-item.menu-danger:hover {
+  background: rgba(244, 63, 94, 0.15);
+}
+
