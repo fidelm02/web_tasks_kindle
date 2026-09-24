@@ -9,17 +9,21 @@ Provee:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from portal.core.templates import portal_templates
 from portal.services import whatsapp_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["whatsapp"])
+
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Estado de conexión en memoria actualizado por el bridge
 _bridge_status = {
@@ -46,7 +50,7 @@ class WhatsAppWebhookPayload(BaseModel):
 async def whatsapp_dashboard(request: Request):
     """Renderiza el panel de monitoreo y configuración de WhatsApp en Portal Pro."""
     recent_activity = whatsapp_service.get_recent_activity()
-    return portal_templates.TemplateResponse(
+    return templates.TemplateResponse(
         request,
         "whatsapp.html",
         {
