@@ -1,0 +1,67 @@
+<!-- Status Filter Dropdown Component -->
+<div class="status-filter-wrapper" id="status-filter-component">
+  <button type="button" class="btn btn-secondary btn-sm status-filter-btn" id="status-filter-btn" onclick="toggleStatusFilterDropdown(event)" title="Filtrar tareas por combinación de estados (Backlog, Por Hacer, En Progreso, En Revisión, Finalizada)">
+    <span>🚦</span>
+    <span class="status-filter-label">Estados:</span>
+    <span class="status-filter-badge" id="status-filter-badge">Todos</span>
+    <span class="status-dropdown-caret">▾</span>
+  </button>
+
+  <div class="status-filter-popover" id="status-filter-popover" onclick="event.stopPropagation()">
+    <div class="status-filter-popover-header">
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span style="font-size:0.9rem;">🚦</span>
+        <span style="font-weight:700; font-size:0.85rem; color:var(--text-primary);">Filtrar por Estado</span>
+      </div>
+      <div class="status-filter-presets">
+        <button type="button" class="preset-btn" onclick="applyStatusFilterPreset('all')" title="Mostrar todas las tareas">Todos</button>
+        <span class="preset-sep">•</span>
+        <button type="button" class="preset-btn" onclick="applyStatusFilterPreset('active')" title="Mostrar solo tareas activas (ocultar finalizadas)">Solo Activas</button>
+        <span class="preset-sep">•</span>
+        <button type="button" class="preset-btn" onclick="applyStatusFilterPreset('none')" title="Desmarcar todos los estados">Limpiar</button>
+      </div>
+    </div>
+
+    <div class="status-filter-options-list">
+      <label class="status-checkbox-item stage-item-backlog" title="Mostrar u ocultar tareas en Backlog">
+        <input type="checkbox" class="status-filter-checkbox" value="backlog" onchange="handleStatusFilterChange()" checked>
+        <span class="status-color-dot" style="background-color: var(--stage-backlog);"></span>
+        <span class="status-item-text">Backlog</span>
+        <span class="status-item-count" data-stage-count="backlog">-</span>
+      </label>
+
+      <label class="status-checkbox-item stage-item-todo" title="Mostrar u ocultar tareas Por Hacer">
+        <input type="checkbox" class="status-filter-checkbox" value="todo" onchange="handleStatusFilterChange()" checked>
+        <span class="status-color-dot" style="background-color: var(--stage-todo);"></span>
+        <span class="status-item-text">Por Hacer</span>
+        <span class="status-item-count" data-stage-count="todo">-</span>
+      </label>
+
+      <label class="status-checkbox-item stage-item-in_progress" title="Mostrar u ocultar tareas En Progreso">
+        <input type="checkbox" class="status-filter-checkbox" value="in_progress" onchange="handleStatusFilterChange()" checked>
+        <span class="status-color-dot" style="background-color: var(--stage-in-progress);"></span>
+        <span class="status-item-text">En Progreso</span>
+        <span class="status-item-count" data-stage-count="in_progress">-</span>
+      </label>
+
+      <label class="status-checkbox-item stage-item-review" title="Mostrar u ocultar tareas En Revisión">
+        <input type="checkbox" class="status-filter-checkbox" value="review" onchange="handleStatusFilterChange()" checked>
+        <span class="status-color-dot" style="background-color: var(--stage-review);"></span>
+        <span class="status-item-text">En Revisión</span>
+        <span class="status-item-count" data-stage-count="review">-</span>
+      </label>
+
+      <label class="status-checkbox-item stage-item-done" title="Mostrar u ocultar tareas Finalizadas">
+        <input type="checkbox" class="status-filter-checkbox" value="done" onchange="handleStatusFilterChange()" checked>
+        <span class="status-color-dot" style="background-color: var(--stage-done);"></span>
+        <span class="status-item-text">Finalizada</span>
+        <span class="status-item-count" data-stage-count="done">-</span>
+      </label>
+    </div>
+
+    <div class="status-filter-popover-footer">
+      <span id="status-filter-active-summary" style="font-size:0.75rem; color:var(--text-muted);">5 de 5 estados activos</span>
+      <button type="button" class="btn btn-primary btn-sm" onclick="closeStatusFilterDropdown()" style="padding:0.25rem 0.65rem; font-size:0.75rem;">Listo</button>
+    </div>
+  </div>
+</div>

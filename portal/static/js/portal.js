@@ -1261,10 +1261,300 @@ function initTableSorting() {
   });
 }
 
+// Multi-Select Status Filter Engine
+function toggleStatusFilterDropdown(event) {
+  if (event) event.stopPropagation();
+  const wrapper = document.getElementById('status-filter-component');
+  if (wrapper) {
+    wrapper.classList.toggle('open');
+    if (wrapper.classList.contains('open')) {
+      updateFilterPopoverCounts();
+    }
+  }
+}
+
+function closeStatusFilterDropdown() {
+  const wrapper = document.getElementById('status-filter-component');
+  if (wrapper) {
+    wrapper.classList.remove('open');
+  }
+}
+
+function applyStatusFilterPreset(preset) {
+  const checkboxes = document.querySelectorAll('.status-filter-checkbox');
+  checkboxes.forEach(cb => {
+    if (preset === 'all') {
+      cb.checked = true;
+    } else if (preset === 'active') {
+      cb.checked = (cb.value !== 'done');
+    } else if (preset === 'none') {
+      cb.checked = false;
+    }
+  });
+  handleStatusFilterChange();
+}
+
+function updateFilterPopoverCounts() {
+  const stageCounts = { backlog: 0, todo: 0, in_progress: 0, review: 0, done: 0 };
+
+  const kanbanCards = document.querySelectorAll('.task-card');
+  if (kanbanCards.length > 0) {
+    kanbanCards.forEach(c => {
+      const st = c.dataset.currentStage;
+      if (st && stageCounts[st] !== undefined) stageCounts[st]++;
+    });
+  } else {
+    const tableRows = document.querySelectorAll('#pro-data-table tbody tr.table-row');
+    if (tableRows.length > 0) {
+      tableRows.forEach(r => {
+        const st = r.dataset.stage;
+        if (st && stageCounts[st] !== undefined) stageCounts[st]++;
+      });
+    } else {
+      const pills = document.querySelectorAll('.cal-event-pill');
+      pills.forEach(p => {
+        const st = p.dataset.stage;
+        if (st && stageCounts[st] !== undefined) stageCounts[st]++;
+      });
+      const unscheduled = document.querySelectorAll('.unscheduled-card');
+      unscheduled.forEach(u => {
+        const st = u.dataset.stage;
+        if (st && stageCounts[st] !== undefined) stageCounts[st]++;
+      });
+    }
+  }
+
+  Object.entries(stageCounts).forEach(([stage, count]) => {
+    const countElem = document.querySelector(`[data-stage-count="${stage}"]`);
+    if (countElem) {
+      countElem.textContent = count;
+    }
+  });
+}
+
+function updateKanbanStatsWithFilter() {
+  const visibleCards = Array.from(document.querySelectorAll('.task-card:not(.status-filter-hidden)'));
+  let totalTasks = visibleCards.length;
+  let totalSp = 0;
+  let doneSp = 0;
+
+  visibleCards.forEach(c => {
+    const sp = parseFloat(c.dataset.storyPoints || 0);
+    if (!isNaN(sp)) {
+      totalSp += sp;
+      if (c.dataset.currentStage === 'done') {
+        doneSp += sp;
+      }
+    }
+  });
+
+  const statValues = document.querySelectorAll('.stats-banner .stat-value');
+  if (statValues.length >= 3) {
+    statValues[0].textContent = totalTasks;
+    statValues[1].innerHTML = `${totalSp.toFixed(1)} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span>`;
+    statValues[2].innerHTML = `${doneSp.toFixed(1)} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span>`;
+  }
+  const progressPercent = totalSp > 0 ? ((doneSp / totalSp) * 100).toFixed(1) : 0;
+  const progressText = document.querySelector('.stats-banner span[style*="accent-primary"]');
+  if (progressText) progressText.textContent = `${progressPercent}%`;
+  const progressFill = document.querySelector('.stats-banner .stat-progress-fill');
+  if (progressFill) progressFill.style.width = `${progressPercent}%`;
+}
+
+function handleStatusFilterChange() {
+  const checkboxes = Array.from(document.querySelectorAll('.status-filter-checkbox'));
+  const selectedStages = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+
+  // Persist preference to localStorage
+  try {
+    localStorage.setItem('portal_status_filter', JSON.stringify(selectedStages));
+  } catch (err) {}
+
+  // Update badge & button appearance
+  const badge = document.getElementById('status-filter-badge');
+  const btn = document.getElementById('status-filter-btn');
+  const summary = document.getElementById('status-filter-active-summary');
+
+  if (summary) {
+    summary.textContent = `${selectedStages.length} de 5 estados activos`;
+  }
+
+  const allStages = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+  const isAll = selectedStages.length === allStages.length;
+  const isActiveOnly = selectedStages.length === 4 && !selectedStages.includes('done');
+
+  if (badge) {
+    if (isAll) {
+      badge.textContent = 'Todos';
+    } else if (isActiveOnly) {
+      badge.textContent = 'Solo Activas';
+    } else if (selectedStages.length === 0) {
+      badge.textContent = 'Ninguno';
+    } else {
+      badge.textContent = `${selectedStages.length}/5`;
+    }
+  }
+
+  if (btn) {
+    if (isAll) {
+      btn.classList.remove('status-filter-active');
+    } else {
+      btn.classList.add('status-filter-active');
+    }
+  }
+
+  // 1. Kanban Board View Filter
+  const kanbanColumns = document.querySelectorAll('.kanban-column');
+  if (kanbanColumns.length > 0) {
+    kanbanColumns.forEach(col => {
+      const stage = col.dataset.stage;
+      const cards = col.querySelectorAll('.task-card');
+      const isAllowed = selectedStages.includes(stage);
+      let visibleInCol = 0;
+
+      cards.forEach(c => {
+        if (isAllowed) {
+          c.classList.remove('status-filter-hidden');
+          visibleInCol++;
+        } else {
+          c.classList.add('status-filter-hidden');
+        }
+      });
+
+      if (!isAllowed) {
+        col.classList.add('kanban-column-dimmed');
+      } else {
+        col.classList.remove('kanban-column-dimmed');
+      }
+
+      const colBadge = col.querySelector('.column-badge');
+      if (colBadge) {
+        colBadge.textContent = visibleInCol;
+      }
+    });
+
+    updateKanbanStatsWithFilter();
+  }
+
+  // 2. Table View Filter
+  const tableRows = document.querySelectorAll('#pro-data-table tbody tr.table-row');
+  if (tableRows.length > 0) {
+    let visibleCount = 0;
+    let visibleSp = 0;
+
+    tableRows.forEach(row => {
+      const stage = row.dataset.stage;
+      if (selectedStages.includes(stage)) {
+        row.classList.remove('status-filter-hidden');
+        visibleCount++;
+        const sp = parseFloat(row.dataset.sp || '0');
+        if (!isNaN(sp)) visibleSp += sp;
+      } else {
+        row.classList.add('status-filter-hidden');
+      }
+    });
+
+    const countStrong = document.querySelector('.table-container')?.previousElementSibling?.querySelector('strong');
+    if (countStrong) {
+      countStrong.textContent = visibleCount;
+    }
+    const allStrongs = document.querySelectorAll('.table-container')?.previousElementSibling?.querySelectorAll('strong');
+    if (allStrongs && allStrongs.length >= 2) {
+      allStrongs[1].textContent = `${visibleSp.toFixed(1)} SP`;
+    }
+  }
+
+  // 3. Calendar View Filter
+  const dayContainers = document.querySelectorAll('.cal-day-events');
+  if (dayContainers.length > 0) {
+    dayContainers.forEach(container => {
+      const pills = Array.from(container.querySelectorAll('.cal-event-pill'));
+      let visiblePills = [];
+
+      pills.forEach(pill => {
+        const stage = pill.dataset.stage;
+        if (selectedStages.includes(stage)) {
+          pill.classList.remove('status-filter-hidden');
+          visiblePills.push(pill);
+        } else {
+          pill.classList.add('status-filter-hidden');
+        }
+      });
+
+      const morePill = container.querySelector('.cal-more-pill');
+      visiblePills.forEach((p, idx) => {
+        if (idx < 2) {
+          p.classList.remove('cal-pill-overflow');
+        } else {
+          p.classList.add('cal-pill-overflow');
+        }
+      });
+
+      if (morePill) {
+        if (visiblePills.length > 2) {
+          morePill.style.display = 'block';
+          morePill.textContent = `+${visiblePills.length - 2} más...`;
+        } else {
+          morePill.style.display = 'none';
+        }
+      }
+    });
+
+    const unscheduledCards = document.querySelectorAll('.unscheduled-card');
+    let visibleUnscheduled = 0;
+    unscheduledCards.forEach(card => {
+      const stage = card.dataset.stage;
+      if (selectedStages.includes(stage)) {
+        card.classList.remove('status-filter-hidden');
+        visibleUnscheduled++;
+      } else {
+        card.classList.add('status-filter-hidden');
+      }
+    });
+    const unscheduledBadge = document.getElementById('unscheduled-count-badge');
+    if (unscheduledBadge) {
+      unscheduledBadge.textContent = visibleUnscheduled;
+    }
+  }
+
+  updateFilterPopoverCounts();
+}
+
+function initStatusFilter() {
+  const component = document.getElementById('status-filter-component');
+  if (!component) return;
+
+  let savedStages = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+  try {
+    const raw = localStorage.getItem('portal_status_filter');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        savedStages = parsed;
+      }
+    }
+  } catch (err) {}
+
+  const checkboxes = document.querySelectorAll('.status-filter-checkbox');
+  checkboxes.forEach(cb => {
+    cb.checked = savedStages.includes(cb.value);
+  });
+
+  handleStatusFilterChange();
+
+  document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('status-filter-component');
+    if (wrapper && !wrapper.contains(e.target)) {
+      wrapper.classList.remove('open');
+    }
+  });
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   initKanbanDragAndDrop();
   initTableSorting();
+  initStatusFilter();
 
   // Close modals on click outside
   document.querySelectorAll('.modal-overlay').forEach(overlay => {

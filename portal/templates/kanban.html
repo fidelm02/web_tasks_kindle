@@ -74,6 +74,9 @@
       <option value="Baja" {% if current_priority == 'Baja' %}selected{% endif %}>Baja</option>
     </select>
 
+    <!-- Botón de Filtro de Estados -->
+    {% include "components/status_filter.html" %}
+
     <div style="display:flex; gap:0.4rem;">
       <a href="/table?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Cambiar a vista de Tabla">
         <span>📑</span>

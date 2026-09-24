@@ -466,7 +466,8 @@ def get_table_data(
         active = [t for t in active if (t.get("priority") or "").lower() == priority.lower()]
 
     if stage and stage != "all":
-        active = [t for t in active if t.get("stage") == stage]
+        allowed_stages = {s.strip().lower() for s in stage.split(",") if s.strip()}
+        active = [t for t in active if t.get("stage") in allowed_stages]
 
     # Ordenamiento por cualquier columna
     reverse = order.lower() == "desc"

@@ -43,8 +43,11 @@
     </a>
   </div>
 
-  <!-- Feed Subscription & View Switchers -->
-  <div style="display:flex; gap:0.5rem;">
+  <!-- Feed Subscription, Filter & View Switchers -->
+  <div style="display:flex; align-items:center; gap:0.5rem;">
+    <!-- Botón de Filtro de Estados -->
+    {% include "components/status_filter.html" %}
+
     <a href="/api/calendar/feed.ics?scope={{ current_scope }}" class="btn btn-secondary btn-sm" title="Descargar o suscribir archivo iCalendar para Google Calendar, Apple Calendar o Outlook">
       <span>📡</span>
       <span>Feed iCal</span>
@@ -87,10 +90,10 @@
               <button class="cal-quick-add" onclick="quickScheduleDay('{{ day.date_str }}')" title="Programar tarea en este día">+</button>
             </div>
 
-            <div class="cal-day-events">
-              {# Mostrar máximo las 2 primeras tareas para mantener el cuadrante simétrico #}
-              {% for task in day.tasks[:2] %}
+            <div class="cal-day-events" data-day-date="{{ day.date_str }}">
+              {% for task in day.tasks %}
               <div class="cal-event-pill stage-{{ task.stage }}" 
+                   data-stage="{{ task.stage }}"
                    onclick="event.stopPropagation(); openTaskDetailModal({{ task | tojson | forceescape }})"
                    title="Click para ver/editar. [{{ task.code }}] {{ task.title }}">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:0.2rem;">
@@ -103,12 +106,9 @@
               </div>
               {% endfor %}
 
-              {# Indicador si hay más tareas en el día #}
-              {% if day.tasks | length > 2 %}
-              <div class="cal-more-pill" onclick="event.stopPropagation(); openDayDetailModal('{{ day.date_str }}', {{ day.tasks | tojson | forceescape }})" title="Ver todas las {{ day.tasks | length }} tareas del día">
-                +{{ day.tasks | length - 2 }} más...
+              <div class="cal-more-pill" style="display:none;" onclick="event.stopPropagation(); openDayDetailModal('{{ day.date_str }}', {{ day.tasks | tojson | forceescape }})" title="Ver todas las tareas del día">
+                + más...
               </div>
-              {% endif %}
             </div>
             {% endif %}
           </div>
@@ -121,7 +121,7 @@
   <aside class="calendar-sidebar">
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem;">
       <h4 style="font-size:0.95rem; font-weight:700;">Sin Fecha Programada</h4>
-      <span class="column-badge">{{ cal.unscheduled_tasks | length }}</span>
+      <span class="column-badge" id="unscheduled-count-badge">{{ cal.unscheduled_tasks | length }}</span>
     </div>
     <p style="font-size:0.78rem; color:var(--text-muted); margin-top:0.2rem;">
       Selecciona una tarea para asignarle fecha y horario de bloqueo.
@@ -129,7 +129,7 @@
 
     <div class="unscheduled-list">
       {% for task in cal.unscheduled_tasks %}
-      <div class="unscheduled-card" onclick="openTaskDetailModal({{ task | tojson | forceescape }})" title="Click para asignar fecha y horario">
+      <div class="unscheduled-card" data-stage="{{ task.stage }}" onclick="openTaskDetailModal({{ task | tojson | forceescape }})" title="Click para asignar fecha y horario">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.72rem; font-weight:700; color:#93c5fd;">{{ task.code }}</span>
           <span class="priority-pill priority-{{ task.priority | lower }}" style="font-size:0.62rem;">{{ task.priority }}</span>

@@ -27,12 +27,8 @@
     <input type="hidden" name="scope" value="{{ current_scope }}">
     <input type="text" name="search" class="search-input" placeholder="Buscar por título, ID o descripción..." value="{{ search_query }}" title="Buscar texto en las tareas">
 
-    <select name="stage" class="select-filter" onchange="this.form.submit()" title="Filtrar por etapa del flujo">
-      <option value="" {% if not current_stage %}selected{% endif %}>Todas las Etapas</option>
-      {% for s in data.stages %}
-      <option value="{{ s.id }}" {% if current_stage == s.id %}selected{% endif %}>{{ s.name }}</option>
-      {% endfor %}
-    </select>
+    <!-- Botón de Filtro de Estados -->
+    {% include "components/status_filter.html" %}
 
     <select name="priority" class="select-filter" onchange="this.form.submit()" title="Filtrar por prioridad">
       <option value="" {% if not current_priority %}selected{% endif %}>Todas las Prioridades</option>
