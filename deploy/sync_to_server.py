@@ -56,10 +56,10 @@ def main() -> None:
     repo_path = server_config.get("repo_path", "/home/fmoreno/Dev/web_tasks_kindle")
 
     try:
-        # Paso 1: Detener el servicio
-        print("[2/4] Deteniendo servicio en el servidor...")
+        # Paso 1: Detener los servicios en el servidor
+        print("[2/4] Deteniendo servicios en el servidor...")
         code, out, err = execute_ssh_command(
-            client, f"cd {repo_path} && python3 kindle_web.py stop"
+            client, f"cd {repo_path} && python3 kindle_web.py stop && python3 portal_web.py stop"
         )
         if out:
             print(f"       {out}")
@@ -85,24 +85,30 @@ def main() -> None:
             sftp.close()
             print("       Sincronizado app/constants.py vía SFTP exitosamente.")
 
-        # Paso 3: Volver a iniciar el servicio
-        print("[4/4] Iniciando el servicio nuevamente en el servidor...")
+        # Paso 3: Volver a iniciar los servicios
+        print("[4/4] Iniciando los servicios en el servidor (Kindle 8080 y Portal 8090)...")
         code, out, err = execute_ssh_command(
-            client, f"cd {repo_path} && python3 kindle_web.py start"
+            client, f"cd {repo_path} && python3 kindle_web.py start && python3 portal_web.py start"
         )
         if out:
             print(f"       {out}")
         if err:
             print(f"       [Aviso]: {err}")
 
-        # Verificar estado final
-        code, status_out, _ = execute_ssh_command(
+        # Verificar estados finales
+        code, kindle_status, _ = execute_ssh_command(
             client, f"cd {repo_path} && python3 kindle_web.py status"
         )
-        print("\nEstado final del servicio:")
-        print(status_out)
+        code, portal_status, _ = execute_ssh_command(
+            client, f"cd {repo_path} && python3 portal_web.py status"
+        )
+        print("\nEstado final de los servicios:")
+        print("--- Kindle Tasks (8080) ---")
+        print(kindle_status)
+        print("\n--- Portal Pro (8090) ---")
+        print(portal_status)
 
-        print("\n✓ ¡Sincronización al servidor completada con éxito!")
+        print("\n✓ ¡Sincronización y despliegue completados con éxito!")
 
     finally:
         client.close()

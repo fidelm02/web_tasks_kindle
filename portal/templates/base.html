@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}Kindle Tasks Pro Portal{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/portal.css">
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/kanban" class="brand">
+        <div class="brand-icon">⚡</div>
+        <div class="brand-text">
+          <span class="brand-title">Tasks Pro</span>
+          <span class="brand-subtitle">Kindle Suite Portal</span>
+        </div>
+      </a>
+
+      <!-- Main Navigation Tabs -->
+      <nav class="nav-tabs">
+        <a href="/kanban" class="nav-tab {% if active_tab == 'kanban' %}active{% endif %}">
+          <span>📊</span>
+          <span>Tablero Jira</span>
+        </a>
+        <a href="/recurrent" class="nav-tab {% if active_tab == 'recurrent' %}active{% endif %}">
+          <span>🔁</span>
+          <span>Crones & Recurrentes</span>
+        </a>
+        <a href="/estimator" class="nav-tab {% if active_tab == 'estimator' %}active{% endif %}">
+          <span>✨</span>
+          <span>Estimador IA</span>
+        </a>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="nav-actions">
+        <button id="btn-run-crons" class="btn btn-secondary btn-sm" onclick="triggerCronsNow()" title="Ejecutar motor de recurrencias inmediatamente">
+          <span>⚡</span>
+          <span>Ejecutar Crones</span>
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-create-task')">
+          <span>+</span>
+          <span>Nueva Tarea</span>
+        </button>
+        <a href="http://192.168.0.98:8080" target="_blank" class="btn btn-secondary btn-sm" title="Ir a la interfaz optimizada para Kindle E-Ink (Puerto 8080)">
+          <span>📖</span>
+          <span>Kindle E-Ink</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="main-wrapper">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Global Modal: Create Task -->
+  <div id="modal-create-task" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Crear Nueva Tarea</h3>
+        <button class="modal-close" onclick="closeModal('modal-create-task')">&times;</button>
+      </div>
+      <form onsubmit="submitCreateTask(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Título de la tarea *</label>
+            <input type="text" name="title" class="form-control" placeholder="Ej. Actualizar componentes de UI" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Descripción</label>
+            <textarea name="description" class="form-control" placeholder="Detalles, criterios de aceptación, requerimientos..."></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Espacio / Proyecto</label>
+              <select name="scope" class="form-control">
+                <option value="fidel">Fidel</option>
+                <option value="casa">Casa</option>
+                <option value="lau">Lau</option>
+                <option value="proyecto-reforma">Proyecto Reforma</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Etapa Inicial</label>
+              <select name="stage" class="form-control">
+                <option value="backlog">Backlog</option>
+                <option value="todo" selected>Por Hacer</option>
+                <option value="in_progress">En Progreso</option>
+                <option value="review">En Revisión</option>
+                <option value="done">Completado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Prioridad</label>
+              <select name="priority" class="form-control">
+                <option value="Baja">Baja</option>
+                <option value="Media" selected>Media</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Story Points (Fibonacci)</label>
+              <input type="number" step="0.5" name="story_points" class="form-control" placeholder="1, 2, 3, 5, 8, 13">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Horas Estimadas</label>
+              <input type="number" step="0.5" name="estimated_hours" class="form-control" placeholder="Ej. 4.0">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Fecha Límite / Objetivo</label>
+            <input type="date" name="target_date" class="form-control">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-create-task')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Crear Tarea</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Global Modal: Task Detail & Edit -->
+  <div id="modal-task-detail" class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Detalle de la Tarea</h3>
+        <button class="modal-close" onclick="closeModal('modal-task-detail')">&times;</button>
+      </div>
+      <form onsubmit="submitUpdateTask(event)">
+        <input type="hidden" id="detail-task-id" name="task_id">
+        <input type="hidden" id="detail-scope" name="scope">
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Título</label>
+            <input type="text" id="detail-title" name="title" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Descripción</label>
+            <textarea id="detail-description" name="description" class="form-control"></textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Etapa actual</label>
+              <select id="detail-stage" name="stage" class="form-control">
+                <option value="backlog">Backlog</option>
+                <option value="todo">Por Hacer</option>
+                <option value="in_progress">En Progreso</option>
+                <option value="review">En Revisión</option>
+                <option value="done">Completado</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Prioridad</label>
+              <select id="detail-priority" name="priority" class="form-control">
+                <option value="Baja">Baja</option>
+                <option value="Media">Media</option>
+                <option value="Alta">Alta</option>
+                <option value="Urgente">Urgente</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Story Points</label>
+              <input type="number" step="0.5" id="detail-sp" name="story_points" class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Horas Estimadas</label>
+              <input type="number" step="0.5" id="detail-hours" name="estimated_hours" class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Fecha Objetivo</label>
+              <input type="date" id="detail-date" name="target_date" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Subtareas / Checklist</label>
+            <div id="detail-subtasks-list" class="subtask-checklist"></div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="justify-content: space-between;">
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteTask(document.getElementById('detail-task-id').value, document.getElementById('detail-scope').value)">
+            <span>🗑 Eliminar Tarea</span>
+          </button>
+          <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-task-detail')">Cerrar</button>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast notifications container -->
+  <div class="toast-container"></div>
+
+  <script src="/static/js/portal.js"></script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Estimador de Esfuerzo IA | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<section class="control-bar">
+  <div>
+    <h2 style="font-size:1.35rem; font-weight:700;">Analizador y Estimador de Esfuerzo con IA</h2>
+    <p style="font-size:0.85rem; color:var(--text-secondary);">
+      Motor impulsado por <strong>Google Gemini (gemini-3.6-flash)</strong> para descomponer tareas, evaluar complejidad, calcular Story Points (Fibonacci) y desglosar subtareas.
+    </p>
+  </div>
+</section>
+
+<!-- Split Layout -->
+<section class="estimator-layout">
+  <!-- Input Form Card -->
+  <div class="panel-card">
+    <h3 style="font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+      <span>📝</span>
+      <span>Definición de la Tarea</span>
+    </h3>
+
+    <form onsubmit="analyzeEffortWithAI(event)">
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Título de la tarea o requerimiento *</label>
+        <input type="text" name="title" class="form-control" placeholder="Ej. Implementar migración de base de datos a PostgreSQL" required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 1rem;">
+        <label class="form-label">Descripción detallada</label>
+        <textarea name="description" class="form-control" placeholder="Explica qué se necesita hacer, alcance esperado, detalles técnicos..."></textarea>
+      </div>
+
+      <div class="form-row" style="margin-bottom: 1rem;">
+        <div class="form-group">
+          <label class="form-label">Espacio / Proyecto</label>
+          <select name="scope" class="form-control">
+            {% for sec in sections %}
+            <option value="{{ sec.id }}" {% if sec.id == 'fidel' %}selected{% endif %}>{{ sec.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Contexto Adicional</label>
+          <input type="text" name="context" class="form-control" placeholder="Ej. Sistema en producción, no downtime...">
+        </div>
+      </div>
+
+      <button type="submit" id="btn-analyze-ai" class="btn btn-primary" style="width:100%; padding:0.75rem;">
+        <span>✨</span>
+        <span>Analizar Esfuerzo con Gemini</span>
+      </button>
+
+      <div id="ai-loader" style="display:none; text-align:center; padding:1rem; color:var(--accent-primary); font-size:0.9rem;">
+        <span style="display:inline-block; animation:spin 1s infinite linear;">⚙</span> Analizando complejidad técnica y calculando Story Points...
+      </div>
+    </form>
+  </div>
+
+  <!-- Results Card -->
+  <div class="panel-card" id="ai-results-card" style="display:none; transition: all 0.3s ease;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:0.75rem;">
+      <h3 style="font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:0.5rem;">
+        <span>🎯</span>
+        <span>Evaluación y Desglose IA</span>
+      </h3>
+      <span class="frequency-tag" id="res-complexity">Media</span>
+    </div>
+
+    <!-- Fibonacci Scale Display -->
+    <div class="form-group">
+      <label class="form-label">Escala Fibonacci de Story Points:</label>
+      <div class="fibonacci-grid">
+        <div class="fib-chip">1</div>
+        <div class="fib-chip">2</div>
+        <div class="fib-chip">3</div>
+        <div class="fib-chip">5</div>
+        <div class="fib-chip">8</div>
+        <div class="fib-chip">13</div>
+        <div class="fib-chip">21</div>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-banner" style="grid-template-columns: 1fr 1fr; gap:0.75rem;">
+      <div class="stat-card" style="padding:0.75rem 1rem;">
+        <div>
+          <div class="stat-label">Story Points</div>
+          <div class="stat-value" id="res-sp" style="color:var(--accent-primary);">3</div>
+        </div>
+      </div>
+
+      <div class="stat-card" style="padding:0.75rem 1rem;">
+        <div>
+          <div class="stat-label">Tiempo Estimado</div>
+          <div class="stat-value" id="res-hours" style="color:var(--accent-emerald);">4.5h</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary reasoning -->
+    <div class="form-group">
+      <label class="form-label">Justificación de la estimación:</label>
+      <p id="res-summary" style="font-size:0.875rem; color:var(--text-secondary); line-height:1.5; background:var(--bg-surface); padding:0.75rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);"></p>
+    </div>
+
+    <!-- Actionable Subtasks -->
+    <div class="form-group">
+      <label class="form-label">Subtareas accionables generadas:</label>
+      <div id="res-subtasks" class="subtask-checklist"></div>
+    </div>
+
+    <!-- Technical Risks -->
+    <div class="form-group">
+      <label class="form-label">Riesgos y dependencias clave:</label>
+      <ul id="res-risks" style="padding-left:1.25rem;"></ul>
+    </div>
+
+    <!-- Apply as Task controls -->
+    <div style="border-top:1px solid var(--border-subtle); padding-top:1rem; display:flex; flex-direction:column; gap:0.75rem;">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Enviar a Etapa:</label>
+          <select id="estimation-target-stage" class="form-control">
+            <option value="backlog">Backlog</option>
+            <option value="todo" selected>Por Hacer</option>
+            <option value="in_progress">En Progreso</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prioridad Inicial:</label>
+          <select id="estimation-target-priority" class="form-control">
+            <option value="Baja">Baja</option>
+            <option value="Media" selected>Media</option>
+            <option value="Alta">Alta</option>
+            <option value="Urgente">Urgente</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="btn-apply-estimation" class="btn btn-success" onclick="createFromEstimation()" style="width:100%; padding:0.75rem;">
+        <span>➕</span>
+        <span>Crear Tarea en Tablero Kanban con esta Estimación</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<style>
+@keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+{% endblock %}

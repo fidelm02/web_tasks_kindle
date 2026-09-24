@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Tablero Jira | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<!-- Top Stats Banner -->
+<section class="stats-banner">
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Total de Tareas</div>
+      <div class="stat-value">{{ board.stats.total_tasks }}</div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.8;">📋</span>
+  </div>
+
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Story Points Totales</div>
+      <div class="stat-value">{{ board.stats.total_story_points }} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span></div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.8;">🎯</span>
+  </div>
+
+  <div class="stat-card">
+    <div>
+      <div class="stat-label">Story Points Completados</div>
+      <div class="stat-value" style="color: var(--accent-emerald);">{{ board.stats.completed_story_points }} <span style="font-size:0.9rem; font-weight:500; color:var(--text-muted)">SP</span></div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.8;">🏆</span>
+  </div>
+
+  <div class="stat-card">
+    <div style="width: 100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="stat-label">Progreso del Flujo</span>
+        <span style="font-weight:700; color:var(--accent-primary);">{{ board.stats.progress_percent }}%</span>
+      </div>
+      <div class="stat-progress-bar">
+        <div class="stat-progress-fill" style="width: {{ board.stats.progress_percent }}%;"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Controls & Filters Bar -->
+<section class="control-bar">
+  <!-- Scope Selector Chips -->
+  <div class="scope-chips">
+    <a href="/kanban?scope=all{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}" 
+       class="chip {% if current_scope == 'all' %}active{% endif %}">
+       🌐 Todos
+    </a>
+    {% for sec in board.sections %}
+    <a href="/kanban?scope={{ sec.id }}{% if search_query %}&search={{ search_query }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}" 
+       class="chip {% if current_scope == sec.id %}active{% endif %}">
+       {% if sec.icon == 'zap' %}⚡{% elif sec.icon == 'home' %}🏠{% elif sec.icon == 'heart' %}❤️{% elif sec.icon == 'tool' %}🛠️{% else %}📌{% endif %}
+       {{ sec.name }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search & Priority Filters -->
+  <form method="GET" action="/kanban" class="search-filter-box">
+    <input type="hidden" name="scope" value="{{ current_scope }}">
+    <input type="text" name="search" class="search-input" placeholder="Buscar tareas..." value="{{ search_query }}">
+
+    <select name="priority" class="select-filter" onchange="this.form.submit()">
+      <option value="" {% if not current_priority %}selected{% endif %}>Todas las Prioridades</option>
+      <option value="Alta" {% if current_priority == 'Alta' %}selected{% endif %}>Alta</option>
+      <option value="Media" {% if current_priority == 'Media' %}selected{% endif %}>Media</option>
+      <option value="Baja" {% if current_priority == 'Baja' %}selected{% endif %}>Baja</option>
+    </select>
+  </form>
+</section>
+
+<!-- 5-Column Jira Kanban Board -->
+<section class="kanban-board">
+  {% for stage in board.stages %}
+  <div class="kanban-column" data-stage="{{ stage.id }}">
+    <!-- Column Header -->
+    <div class="column-header">
+      <div class="column-title-group">
+        <div class="column-indicator" style="background-color: {{ stage.color }};"></div>
+        <span class="column-title">{{ stage.name }}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <span class="column-badge">{{ board.stats.counts_by_stage[stage.id] }}</span>
+        {% if board.stats.sp_by_stage[stage.id] > 0 %}
+        <span class="column-sp-badge">{{ board.stats.sp_by_stage[stage.id] }} SP</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Column Cards Container -->
+    <div class="column-cards" data-stage="{{ stage.id }}">
+      {% for task in board.columns[stage.id] %}
+      <div class="task-card" 
+           draggable="true"
+           data-task-id="{{ task.id }}"
+           data-task-scope="{{ task.scope }}"
+           data-current-stage="{{ stage.id }}"
+           data-story-points="{{ task.story_points or 0 }}"
+           onclick="if(!event.target.closest('.card-actions')) openTaskDetailModal({{ task | tojson | forceescape }})">
+        
+        <div class="card-top">
+          <span class="card-title">{{ task.title }}</span>
+          <span class="card-scope-badge">{{ task.scope }}</span>
+        </div>
+
+        {% if task.description %}
+        <p class="card-desc">{{ task.description }}</p>
+        {% endif %}
+
+        <div class="card-meta">
+          <span class="priority-pill priority-{{ task.priority | lower }}">{{ task.priority }}</span>
+
+          {% if task.story_points %}
+          <span class="sp-badge">🎯 {{ task.story_points }} SP</span>
+          {% endif %}
+
+          {% if task.subtasks_count > 0 %}
+          <span class="subtasks-progress">✓ {{ task.subtasks_completed }}/{{ task.subtasks_count }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Quick Move Select (optimized for touch / mobile) -->
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <span style="font-size:0.7rem; color:var(--text-muted)">Mover:</span>
+          <select class="quick-move-select" onchange="handleQuickStageChange(this)">
+            {% for s in board.stages %}
+            <option value="{{ s.id }}" {% if s.id == stage.id %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}
