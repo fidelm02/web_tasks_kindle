@@ -17,6 +17,8 @@ const makeWASocket = typeof baileys.default === 'function' ? baileys.default : (
 const DisconnectReason = baileys.DisconnectReason || baileys.default?.DisconnectReason;
 const useMultiFileAuthState = baileys.useMultiFileAuthState || baileys.default?.useMultiFileAuthState;
 const downloadMediaMessage = baileys.downloadMediaMessage || baileys.default?.downloadMediaMessage;
+const fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion || baileys.default?.fetchLatestBaileysVersion;
+const Browsers = baileys.Browsers || baileys.default?.Browsers;
 import pino from 'pino';
 import qrcode from 'qrcode-terminal';
 import axios from 'axios';
@@ -62,11 +64,24 @@ async function notifyPortalStatus(connected, qrCode = null, phone = null) {
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
 
+  let version = [2, 3000, 1015901307];
+  try {
+    if (typeof fetchLatestBaileysVersion === 'function') {
+      const v = await fetchLatestBaileysVersion();
+      if (v?.version) version = v.version;
+    }
+  } catch (e) {}
+
+  const browserInfo = Browsers && typeof Browsers.ubuntu === 'function'
+    ? Browsers.ubuntu('Chrome')
+    : ['Ubuntu', 'Chrome', '20.0.04'];
+
   const sock = makeWASocket({
+    version,
     auth: state,
     logger,
-    printQRInTerminal: false, // Manejamos el QR manualmente para qrcode-terminal y Portal
-    browser: ['KindleTasksPro', 'Chrome', '120.0.0'],
+    printQRInTerminal: false,
+    browser: browserInfo,
     generateHighQualityLinkPreview: false,
     syncFullHistory: false
   });
