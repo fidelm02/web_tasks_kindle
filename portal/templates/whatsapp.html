@@ -30,6 +30,28 @@
   </div>
 </section>
 
+<!-- QR Code Pairing Card (Visible when waiting for pairing) -->
+<section id="qr-pairing-section" class="panel-card" style="margin-bottom: 1.5rem; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(59, 130, 246, 0.4); text-align: center; {% if bridge_status.connected %}display:none;{% endif %}">
+  <div style="max-width: 480px; margin: 0 auto; padding: 0.5rem 0;">
+    <h3 style="font-size:1.15rem; font-weight:800; margin-bottom:0.4rem; display:flex; align-items:center; justify-content:center; gap:0.5rem; color:#60a5fa;">
+      <span>📱</span>
+      <span>Vincular WhatsApp (Escanea este código QR)</span>
+    </h3>
+    <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.1rem; line-height:1.4;">
+      En tu celular abre <strong>WhatsApp</strong> &rarr; <strong>Dispositivos vinculados</strong> &rarr; <strong>Vincular un dispositivo</strong>:
+    </p>
+
+    <div style="display:inline-block; padding:12px; background:#fff; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+      <img id="qr-code-img" src="{% if bridge_status.qr_code %}https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data={{ bridge_status.qr_code|urlencode }}{% endif %}" alt="Código QR WhatsApp" style="width:260px; height:260px; display:block;">
+    </div>
+
+    <div style="margin-top:1rem; font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+      <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+      <span>Se actualiza automáticamente en vivo. ¡Apunta tu cámara ahora!</span>
+    </div>
+  </div>
+</section>
+
 <!-- Cheat Sheet & Guidance Card -->
 <section class="panel-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%); border-left: 4px solid #25D366;">
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
@@ -228,5 +250,41 @@ async function simulateWhatsApp(event) {
     loader.style.display = 'none';
   }
 }
+
+// Polling automático cada 3 segundos para refrescar QR y detectar cuando se conecte
+let isCurrentlyConnected = {{ 'true' if bridge_status.connected else 'false' }};
+
+async function pollBridgeStatus() {
+  try {
+    const res = await fetch('/api/whatsapp/status');
+    const data = await res.json();
+    
+    const qrSection = document.getElementById('qr-pairing-section');
+    const qrImg = document.getElementById('qr-code-img');
+    const pill = document.getElementById('bridge-status-pill');
+
+    if (data.connected) {
+      if (!isCurrentlyConnected) {
+        isCurrentlyConnected = true;
+        qrSection.style.display = 'none';
+        pill.innerHTML = `
+          <span class="status-dot" style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span>
+          <span style="font-weight:600; color:#10b981;">✓ Conectado como ${data.phone || 'Fidel'}</span>
+        `;
+        window.location.reload();
+      }
+    } else {
+      if (data.qr_code) {
+        qrSection.style.display = 'block';
+        const newSrc = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(data.qr_code)}`;
+        if (qrImg.src !== newSrc) {
+          qrImg.src = newSrc;
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+setInterval(pollBridgeStatus, 3500);
 </script>
 {% endblock %}
