@@ -12,12 +12,13 @@ y ejecuta automáticamente la acción requerida:
 from __future__ import annotations
 
 import base64
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import json
 import logging
 from pathlib import Path
 import re
 from typing import Any
+import urllib.parse
 import uuid
 
 from app import storage
@@ -45,42 +46,71 @@ Tu labor es escuchar/analizar el mensaje (audio o texto) con máxima atención, 
 CONTEXTO TEMPORAL:
 - Fecha de hoy: {today_date} ({day_name})
 
-INTEGRANTES:
-- "fidel": Fidel Moreno (usuario principal)
-- "lau": Lau (novia de Fidel)
+INTEGRANTES Y CONTACTOS:
+- "fidel": Fidel Moreno (usuario principal) - Correo: fidelm02@gmail.com
+- "lau": Lau / Laura / Lalis (novia de Fidel) - Correo: lalisgallego@hotmail.com
 
 REGLAS DE INTERPRETACIÓN:
-1. "task" (Crear Tarea):
-   - Cuando se mencione una tarea por hacer, comprar, recordar, pendiente, trámite o actividad.
+1. "email" (Redactar y Enviar Correo Electrónico):
+   - Cuando se pida explícitamente enviar, mandar o redactar un correo o email (ej: "mándale un correo a Lau diciéndole...", "envía un email a Lalis con...", "manda un correo a fidel...").
+   - "recipient_name": Nombre del destinatario ("Laura" o "Fidel" u otro).
+   - "recipient_email": Correo destino. Si mencionan a Lau / Laura / Lalis usar "lalisgallego@hotmail.com"; si mencionan a Fidel usar "fidelm02@gmail.com"; o el correo explícito que indiquen.
+   - "subject": Asunto claro y conciso del correo.
+   - "body": Redacción completa del mensaje, estructurada, cordial y clara.
+
+2. "calendar_event" (Agendar Evento / Cita en Google Calendar):
+   - Cuando se mencione agendar una cita, reunión, compromiso con hora específica o bloqueo de tiempo (ej: "agenda cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00").
+   - "target": "fidel" o "lau".
+   - "title": Título del evento o cita.
+   - "description": Detalles o notas del evento.
+   - "event_date": Fecha en formato YYYY-MM-DD.
+   - "start_time": Hora de inicio en formato HH:MM (24 horas, ej. "16:00" o "10:30"). Si no indican hora específica, usar "09:00".
+   - "duration_minutes": Duración estimada en minutos (ej. 30, 60, etc., por defecto 60).
+
+3. "task" (Crear Tarea):
+   - Cuando se mencione una tarea por hacer, comprar, recordar, pendiente, trámite o actividad (que no sea un evento con hora fija ni envío de correo).
    - Identificar para quién es: "target" debe ser "fidel" o "lau" (por defecto "fidel" salvo que se mencione o refiera a Lau).
    - "title": Título conciso y claro de la tarea.
    - "description": Detalles, especificaciones o notas mencionadas en el audio.
    - "priority": "high", "normal", o "low" (por defecto "normal", salvo que indiquen urgencia).
    - "due_date": Fecha calculada en formato YYYY-MM-DD si indican "mañana", "el viernes", "el sábado", "en 3 días", etc., o null si no se especifica.
 
-2. "kindle_doc" (Documento / Lectura para Kindle):
+4. "kindle_doc" (Documento / Lectura para Kindle):
    - Cuando indiquen "para el kindle", "lectura", "artículo", "guarda este resumen", "apunte de lectura", o compartan información extensa que quieran leer en su Kindle Scribe.
    - "target": "fidel" (se guarda en docs/) o "lau" (se guarda en docs_lau/).
    - "title": Título descriptivo del documento.
    - "markdown_content": Contenido completo en Markdown bien formateado (con títulos ##, viñetas, negritas) listo para leer en Kindle.
 
-3. "health_log" (Salud & Fitness):
+5. "health_log" (Salud & Fitness):
    - Cuando indiquen pesaje (ej: "pesé 92.5 kg", "mi peso hoy fue 93"), o hábitos ("ya fui al gym", "terminé mi caminata de 1 hora", "tomé mis 3 litros de agua").
    - "target": "fidel" o "lau".
    - "metric_type": "weight" o "habit".
    - Si es "weight": "weight_value" (número flotante, ej. 92.5), "notes": notas opcionales.
    - Si es "habit": "habit_id" ("gym", "walk", o "water").
 
-4. "chat_response" (Respuesta / Consulta general):
+6. "chat_response" (Respuesta / Consulta general):
    - Cuando hagan una pregunta, consulta de datos, cálculo rápido o saludo que requiera responderles directamente en el grupo.
    - "reply_text": Respuesta amigable, concisa y útil para el grupo.
 
 DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA (sin backticks extraños):
 {{
-  "action": "task" | "kindle_doc" | "health_log" | "chat_response",
+  "action": "email" | "calendar_event" | "task" | "kindle_doc" | "health_log" | "chat_response",
   "target": "fidel" | "lau",
   "transcription": "Transcripción textual de lo que se dijo en el audio o mensaje recibido",
   "summary": "Resumen en una frase de la acción comprendida",
+  "email": {{
+    "recipient_name": "Laura",
+    "recipient_email": "lalisgallego@hotmail.com",
+    "subject": "Asunto del correo",
+    "body": "Cuerpo del correo..."
+  }},
+  "calendar_event": {{
+    "title": "Cita con el dentista",
+    "description": "Limpieza dental",
+    "event_date": "YYYY-MM-DD",
+    "start_time": "16:00",
+    "duration_minutes": 60
+  }},
   "task": {{
     "title": "Título de la tarea",
     "description": "Detalles o notas",
@@ -119,6 +149,40 @@ def _get_day_name(d: date) -> str:
     """Devuelve el nombre del día en español."""
     dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
     return dias[d.weekday()]
+
+
+def _send_whatsapp_email(
+    to_email: str, subject: str, body: str, sender_name: str
+) -> tuple[bool, str]:
+    """Envía un correo electrónico vía Gmail SMTP con las credenciales de constants.py."""
+    from email.message import EmailMessage
+    import smtplib
+    from app.constants import GMAIL_SENDER_EMAIL, GMAIL_APP_PASSWORD
+
+    sender = GMAIL_SENDER_EMAIL or "fidelm02@gmail.com"
+    app_pwd = GMAIL_APP_PASSWORD or ""
+    if not app_pwd:
+        return False, "GMAIL_APP_PASSWORD no está configurado en app/constants.py"
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{sender_name} (vía Kindle Tasks) <{sender}>"
+    msg["To"] = to_email
+    footer = (
+        f"\n\n---\n"
+        f"✉️ Mensaje redactado y despachado automáticamente desde el grupo de WhatsApp 'Chismoso' "
+        f"por solicitud de {sender_name}."
+    )
+    msg.set_content(body + footer)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=25) as s:
+            s.login(sender, app_pwd)
+            s.send_message(msg)
+        return True, "Enviado exitosamente"
+    except Exception as exc:
+        logger.error("Error al enviar correo desde WhatsApp: %s", exc)
+        return False, str(exc)
 
 
 def process_whatsapp_message(
@@ -232,9 +296,86 @@ def process_whatsapp_message(
     reply_text = ""
 
     # =========================================================================
-    # EJECUTOR 1: CREAR TAREA (KINDLE / PORTAL)
+    # EJECUTOR 1: ENVIAR CORREO ELECTRÓNICO (GMAIL SMTP)
     # =========================================================================
-    if action == "task":
+    if action == "email":
+        email_info = parsed_ai.get("email") or {}
+        recip_name = email_info.get("recipient_name") or "Destinatario"
+        recip_email = email_info.get("recipient_email") or ""
+        subject = email_info.get("subject") or "Mensaje desde WhatsApp (Chismoso)"
+        body = email_info.get("body") or transcription
+
+        # Resolución inteligente de contactos conocidos si no viene correo exacto
+        recip_name_lower = recip_name.lower()
+        if "lau" in recip_name_lower or "lalis" in recip_name_lower:
+            recip_email = "lalisgallego@hotmail.com"
+            recip_name = "Laura (Lalis)"
+        elif "fidel" in recip_name_lower:
+            recip_email = "fidelm02@gmail.com"
+            recip_name = "Fidel"
+        elif not recip_email or "@" not in recip_email:
+            recip_email = "lalisgallego@hotmail.com"
+            recip_name = "Laura (Lalis)"
+
+        ok, err_msg = _send_whatsapp_email(recip_email, subject, body, sender_name)
+        if ok:
+            reply_text = (
+                f"✉️ *Correo enviado exitosamente a {recip_name}* (`{recip_email}`)\n\n"
+                f"📌 *Asunto:* {subject}\n"
+                f"📝 *Mensaje:* {body}"
+            )
+        else:
+            reply_text = f"⚠️ Error al enviar correo a {recip_name} ({recip_email}): {err_msg}"
+
+    # =========================================================================
+    # EJECUTOR 2: AGENDAR EN GOOGLE CALENDAR & KINDLE TASKS
+    # =========================================================================
+    elif action == "calendar_event":
+        cal_info = parsed_ai.get("calendar_event") or {}
+        title = cal_info.get("title") or transcription[:60]
+        desc = cal_info.get("description") or f"Agendado desde WhatsApp por {sender_name}"
+        event_date = cal_info.get("event_date") or today.isoformat()
+        start_time = cal_info.get("start_time") or "09:00"
+        duration = int(cal_info.get("duration_minutes") or 60)
+
+        # Generar fechas en formato ISO para URL de Google Calendar (YYYYMMDDTHHMMSS)
+        try:
+            dt_start = datetime.strptime(f"{event_date} {start_time}", "%Y-%m-%d %H:%M")
+            dt_end = dt_start + timedelta(minutes=duration)
+            dates_param = f"{dt_start.strftime('%Y%m%dT%H%M%S')}/{dt_end.strftime('%Y%m%dT%H%M%S')}"
+        except Exception:
+            dates_param = f"{event_date.replace('-', '')}/{event_date.replace('-', '')}"
+
+        gcal_params = {
+            "action": "TEMPLATE",
+            "text": title,
+            "details": f"{desc}\n\nAgendado desde el grupo Chismoso por {sender_name}.",
+            "dates": dates_param,
+        }
+        gcal_link = f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
+
+        # Guardar en base de datos de tareas con fecha para time-blocking en portal
+        storage.create_task(
+            title=f"📅 {title} ({start_time})",
+            description=f"{desc}\n\nGoogle Calendar: {gcal_link}",
+            priority="normal",
+            target_date=event_date,
+            scope=target,
+        )
+
+        target_display = "Fidel" if target == "fidel" else "Lau"
+        reply_text = (
+            f"📅 *Evento agendado para {target_display}*:\n"
+            f"📌 *{title}*\n"
+            f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
+            f"✓ Guardado en tu Calendario de tareas.\n\n"
+            f"🔗 *Bloquear en Google Calendar (1 clic):*\n{gcal_link}"
+        )
+
+    # =========================================================================
+    # EJECUTOR 3: CREAR TAREA (KINDLE / PORTAL)
+    # =========================================================================
+    elif action == "task":
         task_info = parsed_ai.get("task") or {}
         title = task_info.get("title") or transcription[:60]
         desc = task_info.get("description") or f"Creada desde WhatsApp por {sender_name}"
