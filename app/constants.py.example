@@ -15,7 +15,8 @@ import os
 
 CLICKUP_API_TOKEN: str = os.getenv("CLICKUP_API_TOKEN", "")
 CLICKUP_TEAM_ID: str = os.getenv("CLICKUP_TEAM_ID", "")
-CLICKUP_LIST_ID: str = os.getenv("CLICKUP_LIST_ID", "")
+CLICKUP_FOLDER_ID: str = os.getenv("CLICKUP_FOLDER_ID", "901313945044")
+CLICKUP_LIST_ID: str = os.getenv("CLICKUP_LIST_ID", "")  # Opcional (override manual)
 CLICKUP_BACKLOG_LIST_ID: str = os.getenv(
     "CLICKUP_BACKLOG_LIST_ID", "901322014973"
 )
@@ -65,8 +66,6 @@ def get_missing_configuration() -> list[str]:
         missing.append("CLICKUP_API_TOKEN")
     if not CLICKUP_TEAM_ID:
         missing.append("CLICKUP_TEAM_ID")
-    if not CLICKUP_LIST_ID:
-        missing.append("CLICKUP_LIST_ID")
     if not CLICKUP_USER_ID:
         missing.append("CLICKUP_USER_ID")
     return missing

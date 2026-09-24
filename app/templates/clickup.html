@@ -37,8 +37,18 @@
 {% endif %}
 
 <div class="section-toolbar">
-  <h2>{{ list_name }}</h2>
-  <span class="tab-badge">{{ tasks | length }} asignadas en total</span>
+  <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+    <h2>{{ list_name }}</h2>
+    <span class="tab-badge">{{ tasks | length }} asignadas en total</span>
+  </div>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a href="/clickup/tasks/new?view={{ active_view }}" class="btn btn-primary" style="min-height: 42px; padding: 6px 16px; font-size: 16px; text-decoration: none; background-color: #000000; color: #FFFFFF;">
+      + Nueva Tarea
+    </a>
+    <a href="/clickup?view={{ active_view }}&refresh=1" class="btn" style="min-height: 42px; padding: 6px 14px; font-size: 16px; text-decoration: none;">
+      ↻ Actualizar
+    </a>
+  </div>
 </div>
 
 {% macro render_task_card(task) %}
@@ -61,6 +71,13 @@
         <span class="status-badge badge-in-progress">● {{ task.status }}</span>
       {% else %}
         <span class="status-badge badge-open">{{ task.status }}</span>
+      {% endif %}
+
+      <!-- Story Points si existen -->
+      {% if task.story_points is not none and task.story_points != '' %}
+        <span class="tab-badge" style="font-size: 13px; padding: 1px 7px; background-color: #E8E8E8; border: 1.5px solid #000000; font-weight: bold;">
+          ★ {{ task.story_points }} SP
+        </span>
       {% endif %}
 
       <!-- Tags de ClickUp -->

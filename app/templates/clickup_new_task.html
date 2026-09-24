@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}ClickUp - Nueva Tarea{% endblock %}
+{% block page_heading %}ClickUp - Fidel{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 0 auto;">
+
+  <!-- Botón de retorno rápido para Kindle -->
+  <div style="margin-bottom: 16px;">
+    <a href="/clickup?view={{ view }}" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 17px;">
+      ← Volver a ClickUp
+    </a>
+  </div>
+
+  {% if err %}
+  <div class="notice-box" style="border-left: 8px solid #000000; background-color: #F8F8F8; margin-bottom: 20px;">
+    <strong>⚠️ Error:</strong> {{ err }}
+  </div>
+  {% endif %}
+
+  <!-- Contenedor de formulario de alto contraste -->
+  <div style="border: 3px solid #000000; padding: 22px; background-color: #FFFFFF;">
+
+    <div style="border-bottom: 2px solid #000000; padding-bottom: 14px; margin-bottom: 20px;">
+      <h2 style="margin: 0 0 6px 0; font-size: 26px; font-weight: 900;">Crear Nueva Tarea en ClickUp</h2>
+      <p style="margin: 0; font-size: 16px; color: #444444;">
+        Ingresa los detalles para registrar la tarea directamente en ClickUp sin salir de tu Kindle.
+      </p>
+    </div>
+
+    <form method="POST" action="/clickup/tasks/create">
+      <input type="hidden" name="redirect_view" value="{{ view }}">
+
+      <!-- 1. Lista de Destino (Selector táctil segmentado) -->
+      <div class="form-group" style="margin-bottom: 22px;">
+        <label style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 8px;">
+          Lista de Destino *
+        </label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <!-- Opción Sprint Actual -->
+          <label style="cursor: pointer; margin: 0; position: relative;">
+            <input
+              type="radio"
+              name="target_list"
+              value="sprint"
+              {% if view == 'sprint' %}checked{% endif %}
+              style="position: absolute; opacity: 0; width: 0; height: 0;"
+              class="dest-radio-input"
+              id="opt-sprint"
+            >
+            <div class="dest-radio-card" style="border: 2px solid #000000; padding: 12px; text-align: center; min-height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 4px; user-select: none;">
+              <strong style="font-size: 17px;">Sprint Actual</strong>
+              <span style="font-size: 13px; color: #555555;">{{ sprint_name }}</span>
+            </div>
+          </label>
+
+          <!-- Opción Product Backlog -->
+          <label style="cursor: pointer; margin: 0; position: relative;">
+            <input
+              type="radio"
+              name="target_list"
+              value="backlog"
+              {% if view == 'backlog' %}checked{% endif %}
+              style="position: absolute; opacity: 0; width: 0; height: 0;"
+              class="dest-radio-input"
+              id="opt-backlog"
+            >
+            <div class="dest-radio-card" style="border: 2px solid #000000; padding: 12px; text-align: center; min-height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 4px; user-select: none;">
+              <strong style="font-size: 17px;">Product Backlog</strong>
+              <span style="font-size: 13px; color: #555555;">Pendientes generales</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 2. Título de la tarea -->
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label for="task_name" style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 6px;">
+          Título de la Tarea *
+        </label>
+        <input
+          type="text"
+          id="task_name"
+          name="name"
+          required
+          placeholder="Ej: Implementar exportación de reportes..."
+          class="form-control"
+          style="width: 100%; min-height: 50px; font-size: 19px; padding: 10px 14px; border: 2px solid #000000; box-sizing: border-box;"
+          autofocus
+        >
+      </div>
+
+      <!-- 3. Descripción o Notas -->
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label for="task_desc" style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 6px;">
+          Descripción o Notas <span style="font-weight: normal; font-size: 15px; color: #666666;">(opcional)</span>
+        </label>
+        <textarea
+          id="task_desc"
+          name="description"
+          rows="4"
+          placeholder="Detalles, notas técnicas o requisitos..."
+          class="form-control"
+          style="width: 100%; min-height: 90px; font-size: 17px; padding: 10px 14px; border: 2px solid #000000; box-sizing: border-box; font-family: inherit;"
+        ></textarea>
+      </div>
+
+      <!-- 4. Story Points -->
+      <div class="form-group" style="margin-bottom: 24px;">
+        <label for="task_sp" style="display: block; font-weight: bold; font-size: 18px; margin-bottom: 6px;">
+          Story Points <span style="font-weight: normal; font-size: 15px; color: #666666;">(opcional)</span>
+        </label>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input
+            type="number"
+            step="0.5"
+            min="0"
+            max="100"
+            id="task_sp"
+            name="story_points"
+            placeholder="0"
+            class="form-control"
+            style="width: 110px; min-height: 48px; font-size: 20px; font-weight: bold; padding: 8px 12px; border: 2px solid #000000; text-align: center;"
+          >
+          <!-- Botones táctiles de selección rápida -->
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            {% for pt in [1, 2, 3, 5, 8] %}
+            <button
+              type="button"
+              class="btn"
+              style="min-width: 44px; min-height: 48px; padding: 6px 12px; font-size: 18px; font-weight: bold;"
+              onclick="document.getElementById('task_sp').value = '{{ pt }}';"
+            >
+              {{ pt }}
+            </button>
+            {% endfor %}
+            <button
+              type="button"
+              class="btn"
+              style="min-width: 44px; min-height: 48px; padding: 6px 12px; font-size: 14px;"
+              onclick="document.getElementById('task_sp').value = '';"
+              title="Borrar puntos"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Parámetros automáticos (Claridad visual) -->
+      <div style="background-color: #F6F6F6; border: 1.5px solid #CCCCCC; padding: 12px 16px; margin-bottom: 24px; display: flex; gap: 24px; flex-wrap: wrap; font-size: 15px;">
+        <div>
+          <span style="color: #555555;">Estado inicial:</span>
+          <strong style="margin-left: 4px; border: 1px solid #000000; padding: 1px 6px; background-color: #FFFFFF;">TO DO</strong>
+        </div>
+        <div>
+          <span style="color: #555555;">Asignado por defecto:</span>
+          <strong style="margin-left: 4px;">Fidel Moreno (Tú)</strong>
+        </div>
+      </div>
+
+      <!-- 6. Acciones -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button
+          type="submit"
+          class="btn btn-primary btn-block"
+          style="min-height: 54px; font-size: 20px; font-weight: bold; background-color: #000000; color: #FFFFFF;"
+        >
+          ✓ Crear Tarea en ClickUp
+        </button>
+        <a
+          href="/clickup?view={{ view }}"
+          class="btn btn-block"
+          style="min-height: 48px; font-size: 18px; text-decoration: none; text-align: center;"
+        >
+          Cancelar
+        </a>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<style>
+  .dest-radio-input:checked + .dest-radio-card {
+    background-color: #000000 !important;
+    color: #FFFFFF !important;
+  }
+  .dest-radio-input:checked + .dest-radio-card span {
+    color: #CCCCCC !important;
+  }
+</style>
+{% endblock %}
