@@ -23,6 +23,8 @@ Kindle Tasks solves this by offering:
 - **Pending & Completed Views**: Organize pending tasks by priority and due date, with a dedicated view for completed and archived items.
 - **Priority Indicators**: Categorize tasks into High, Medium, and Low priorities with clear, bold indicators.
 - **Due Date Reminders**: Visual cues for tasks due today, tomorrow, or overdue.
+- **ClickUp Integration**: Real-time integration with ClickUp to view active Sprint tasks (automatically detected by dates) and Product Backlog, complete with task creation, Story Points assignment, and status transitions.
+- **Automated Deployment**: Built-in deployment script (`deploy/sync_to_server.py`) to stop the remote daemon, pull updates, sync configurations, and restart the service on the LAN server.
 - **Zero Configuration Launcher**: An automated `run.py` script that creates the virtual environment, installs dependencies, and serves the application.
 - **Atomic Concurrency Protection**: File-locking persistence ensures data integrity during reads and writes.
 
