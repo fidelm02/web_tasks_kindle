@@ -1593,3 +1593,223 @@ input:checked + .slider:before {
   background: rgba(244, 63, 94, 0.15);
 }
 
+/* ==========================================================================
+   Health, Fitness & 3-Month Program Styles
+   ========================================================================== */
+.health-card {
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.health-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.85rem;
+}
+
+.gym-heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .gym-heatmap-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}
+
+.gym-heat-cell {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.gym-heat-cell:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.gym-heat-cell.attended {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.gym-heat-cell.today-cell {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.35);
+}
+
+.weight-chart-box {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.weight-chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 140px;
+  overflow: visible;
+}
+
+.phases-stepper-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .phases-stepper-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.phase-step-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.1rem;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.phase-step-card.active-phase {
+  border-color: var(--accent-primary);
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+}
+
+.phase-step-card.completed-phase {
+  border-color: var(--accent-emerald);
+}
+
+.phase-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+}
+
+.program-tabs-bar {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.5rem;
+  overflow-x: auto;
+}
+
+.program-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.program-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.program-tab-btn.active {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+.program-tab-content {
+  display: none;
+  margin-top: 1.25rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.program-tab-content.active {
+  display: block;
+}
+
+.workout-days-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.workout-day-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.exercise-list {
+  padding-left: 1.2rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.exercise-list li {
+  line-height: 1.4;
+}
+
+.macros-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .macros-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.macro-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.habit-guide-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.15rem;
+}
+
+

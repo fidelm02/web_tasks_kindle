@@ -1559,11 +1559,177 @@ function initStatusFilter() {
   });
 }
 
+// Health & Fitness Module Handlers
+function switchProgramTab(btn, tabId) {
+  const container = btn.closest('section');
+  if (!container) return;
+
+  container.querySelectorAll('.program-tab-btn').forEach(b => b.classList.remove('active'));
+  container.querySelectorAll('.program-tab-content').forEach(c => c.classList.remove('active'));
+
+  btn.classList.add('active');
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add('active');
+}
+
+async function toggleDailyHabit(profileId, habitType) {
+  try {
+    const res = await fetch('/api/health/habit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId, habit_type: habitType })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      const habitNames = { gym: 'Gimnasio', walk: 'Caminata', water: 'Hidratación' };
+      const statusText = data.is_completed ? 'completado ✓' : 'desmarcado';
+      showToast(`Hábito de ${habitNames[habitType] || habitType} ${statusText}`);
+      setTimeout(() => location.reload(), 500);
+    } else {
+      showToast('Error al registrar hábito', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
+async function submitWeightEntry(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+
+  const payload = {
+    profile_id: formData.get('profile_id'),
+    weight: parseFloat(formData.get('weight')),
+    date_str: formData.get('date_str') || null,
+    notes: formData.get('notes') || ''
+  };
+
+  try {
+    const res = await fetch('/api/health/weight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showToast('Nuevo pesaje guardado exitosamente');
+      closeModal('modal-log-weight');
+      setTimeout(() => location.reload(), 400);
+    } else {
+      const err = await res.json();
+      showToast(err.detail || 'Error al guardar pesaje', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión al guardar pesaje', 'error');
+  }
+}
+
+async function submitUpdateProfileGoals(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+
+  const payload = {
+    profile_id: formData.get('profile_id'),
+    height_cm: formData.get('height_cm') ? parseFloat(formData.get('height_cm')) : null,
+    target_weight: formData.get('target_weight') ? parseFloat(formData.get('target_weight')) : null,
+    weekly_gym_goal: formData.get('weekly_gym_goal') ? parseInt(formData.get('weekly_gym_goal'), 10) : null,
+    daily_walking_hours: formData.get('daily_walking_hours') ? parseFloat(formData.get('daily_walking_hours')) : null,
+    water_goal_liters: formData.get('water_goal_liters') ? parseFloat(formData.get('water_goal_liters')) : null
+  };
+
+  try {
+    const res = await fetch('/api/health/profile/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showToast('Metas de salud actualizadas');
+      closeModal('modal-health-profile');
+      setTimeout(() => location.reload(), 400);
+    } else {
+      showToast('Error al actualizar metas', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
+async function submitGenerateAiProgram(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  const submitBtn = document.getElementById('btn-submit-ai-program');
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '✨ Diseñando programa con Nutriólogo y Coach IA...';
+  }
+
+  const payload = {
+    profile_id: formData.get('profile_id'),
+    target_loss_kg: parseFloat(formData.get('target_loss_kg')),
+    weeks: parseInt(formData.get('weeks'), 10),
+    gym_days_available: parseInt(formData.get('gym_days_available'), 10),
+    diet_preferences: formData.get('diet_preferences') || 'Balanceada'
+  };
+
+  try {
+    const res = await fetch('/api/health/program/ai-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      showToast('¡Programa de 12 semanas generado exitosamente por IA!');
+      closeModal('modal-ai-program');
+      setTimeout(() => location.reload(), 600);
+    } else {
+      showToast('Error al generar programa con IA', 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>✨</span><span>Generar Plan de 3 Meses</span>';
+      }
+    }
+  } catch (err) {
+    showToast('Error de conexión con el servicio de IA', 'error');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>✨</span><span>Generar Plan de 3 Meses</span>';
+    }
+  }
+}
+
+async function syncProgramToCrons(profileId) {
+  try {
+    const res = await fetch('/api/health/program/sync-recurrent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile_id: profileId })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast(data.message || 'Hábitos vinculados a tareas periódicas del cron');
+    } else {
+      showToast(data.detail || 'Error al sincronizar con crones', 'error');
+    }
+  } catch (err) {
+    showToast('Error de conexión', 'error');
+  }
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   initKanbanDragAndDrop();
   initTableSorting();
   initStatusFilter();
+
+  // Set default date for weight log if input exists
+  const weightDateInput = document.getElementById('log-weight-date');
+  if (weightDateInput && !weightDateInput.value) {
+    weightDateInput.value = new Date().toISOString().split('T')[0];
+  }
 
   // Close modals on click outside
   document.querySelectorAll('.modal-overlay').forEach(overlay => {

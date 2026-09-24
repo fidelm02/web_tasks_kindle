@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+
+{% block title %}Salud, Fitness & Metas Trimestrales | Kindle Tasks Pro{% endblock %}
+
+{% block content %}
+<!-- Top Profile Switcher & Action Bar -->
+<section class="control-bar" style="justify-content: space-between; align-items:center;">
+  <!-- Profile Selector Chips -->
+  <div style="display:flex; align-items:center; gap:0.75rem;">
+    <span style="font-size:0.85rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em;">Perfil Activo:</span>
+    <div class="scope-chips" style="padding-bottom:0;">
+      {% for prof in data.all_profiles %}
+      <a href="/health?profile={{ prof.id }}" 
+         class="chip {% if data.profile_id == prof.id %}active{% endif %}"
+         title="Ver datos de salud y programa de {{ prof.name }}"
+         style="font-size:0.875rem; font-weight:600; padding:0.45rem 1rem;">
+         <span>{{ prof.avatar }}</span>
+         <span>{{ prof.name }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Quick Health Actions -->
+  <div style="display:flex; gap:0.5rem; align-items:center;">
+    <button class="btn btn-secondary btn-sm" onclick="openModal('modal-log-weight')" title="Registrar un nuevo pesaje con fecha y notas">
+      <span>⚖️</span>
+      <span>Registrar Peso</span>
+    </button>
+    <button class="btn btn-secondary btn-sm" onclick="openModal('modal-health-profile')" title="Modificar estatura, peso objetivo o días de gym por semana">
+      <span>⚙️</span>
+      <span>Ajustar Metas</span>
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-ai-program')" title="Generar un nuevo programa trimestral (3 meses) con Inteligencia Artificial">
+      <span>✨</span>
+      <span>Generador Programa IA</span>
+    </button>
+  </div>
+</section>
+
+<!-- Hero Health & Fitness Stats Banner -->
+<section class="stats-banner">
+  <!-- Card 1: Peso & Meta -->
+  <div class="stat-card" style="border-left: 4px solid var(--accent-emerald);" title="Progreso de pérdida de peso hacia la meta">
+    <div style="width: 100%;">
+      <div class="stat-label">Peso Actual / Meta</div>
+      <div class="stat-value" style="color:var(--accent-emerald);">
+        {{ data.weight_stats.current_weight }} <span style="font-size:0.85rem; font-weight:500; color:var(--text-muted)">kg</span>
+        <span style="font-size:0.85rem; font-weight:600; color:var(--text-secondary); margin-left:0.5rem;">(Meta: {{ data.weight_stats.target_weight }} kg)</span>
+      </div>
+      <div style="margin-top:0.4rem;">
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.2rem;">
+          <span>Perdidos: <strong>-{{ data.weight_stats.lost_kg }} kg</strong></span>
+          <span>Faltan: <strong>{{ data.weight_stats.remaining_kg }} kg</strong> ({{ data.weight_stats.progress_percent }}%)</span>
+        </div>
+        <div class="stat-progress-bar">
+          <div class="stat-progress-fill" style="width: {{ data.weight_stats.progress_percent }}%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-emerald));"></div>
+        </div>
+      </div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.85;">⚖️</span>
+  </div>
+
+  <!-- Card 2: Gimnasio & Racha -->
+  <div class="stat-card" style="border-left: 4px solid var(--accent-primary);" title="Cumplimiento de sesiones de gimnasio">
+    <div>
+      <div class="stat-label">Gym Esta Semana</div>
+      <div class="stat-value" style="color:var(--accent-primary);">
+        {{ data.gym_stats.attended_this_week }} / {{ data.gym_stats.weekly_goal }}
+        <span style="font-size:0.85rem; font-weight:500; color:var(--text-muted)">días</span>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.25rem;">
+        {% if data.gym_stats.streak_days > 0 %}
+        🔥 Racha activa: <strong>{{ data.gym_stats.streak_days }} días seguidos</strong>
+        {% else %}
+        🎯 Objetivo: {{ data.gym_stats.weekly_goal }} días a la semana
+        {% endif %}
+      </div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.85;">🏋️‍♂️</span>
+  </div>
+
+  <!-- Card 3: Caminata & Pasos -->
+  <div class="stat-card" style="border-left: 4px solid var(--accent-amber);" title="Meta diaria de caminata y acondicionamiento cardiovascular">
+    <div>
+      <div class="stat-label">Caminata / Pasos Diarios</div>
+      <div class="stat-value" style="color:var(--accent-amber);">
+        {{ data.profile.daily_walking_hours }} <span style="font-size:0.85rem; font-weight:500; color:var(--text-muted)">h/día</span>
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.25rem;">
+        Meta: <strong>{{ data.profile.daily_steps_goal }} pasos</strong> &bull; Cardio LISS Zona 2
+      </div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.85;">🚶‍♂️</span>
+  </div>
+
+  <!-- Card 4: Programa Trimestral Activo -->
+  <div class="stat-card" style="border-left: 4px solid var(--accent-purple);" title="Estado del programa de 3 meses">
+    <div>
+      <div class="stat-label">Programa Trimestral (3 Meses)</div>
+      <div class="stat-value" style="color:var(--accent-purple); font-size:1.35rem;">
+        Semana {{ data.program.current_week or 1 }} de {{ data.program.duration_weeks or 12 }}
+      </div>
+      <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:0.25rem;">
+        Meta: <strong>-{{ data.program.target_loss_kg or 8 }} kg</strong> &bull; {{ data.program.nutrition_plan.daily_calories }} kcal/día
+      </div>
+    </div>
+    <span style="font-size: 1.8rem; opacity: 0.85;">🏆</span>
+  </div>
+</section>
+
+<!-- 2-Column Split: Consistency / Habits & Weight Evolution -->
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+  
+  <!-- Column 1: Análisis de Tareas Recurrentes e "Ir al Gym" -->
+  <div class="health-card">
+    <div class="health-card-header">
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <span style="font-size:1.25rem;">🏋️‍♂️</span>
+        <div>
+          <h3 style="font-size:1.05rem; font-weight:700;">Cumplimiento: "Ir al Gym" & Hábitos</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">Seguimiento de la tarea recurrente y check-ins de salud</p>
+        </div>
+      </div>
+      <button class="btn btn-sm {% if data.gym_stats.attended_today %}btn-primary{% else %}btn-secondary{% endif %}" 
+              onclick="toggleDailyHabit('{{ data.profile_id }}', 'gym')" 
+              id="btn-checkin-gym"
+              title="Marca si asististe al gimnasio el día de hoy">
+        <span>{% if data.gym_stats.attended_today %}✓{% else %}+{% endif %}</span>
+        <span>{% if data.gym_stats.attended_today %}¡Entrenado Hoy!{% else %}Registrar Gym Hoy{% endif %}</span>
+      </button>
+    </div>
+
+    <!-- Quick Habits Checklist Bar -->
+    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:0.85rem; margin:1rem 0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+      <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Check-in de Hábitos de Hoy:</span>
+      <div style="display:flex; gap:0.5rem;">
+        <button class="btn btn-sm btn-secondary" onclick="toggleDailyHabit('{{ data.profile_id }}', 'walk')" title="Completé mi caminata diaria de 1 hora">
+          <span>🚶‍♂️</span>
+          <span>Caminata 1h</span>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="toggleDailyHabit('{{ data.profile_id }}', 'water')" title="Cumplí mi meta de hidratación de 3 litros de agua">
+          <span>💧</span>
+          <span>Agua {{ data.profile.water_goal_liters }}L</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Consistency Heatmap (Last 28 Days) -->
+    <div style="margin: 1.25rem 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem;">
+        <span style="font-size:0.825rem; font-weight:600; color:var(--text-secondary);">Consistencia Últimas 4 Semanas:</span>
+        <span style="font-size:0.78rem; color:var(--accent-primary); font-weight:600;">{{ data.gym_stats.attended_this_month }} días asistidos este mes</span>
+      </div>
+      <div class="gym-heatmap-grid">
+        {% for day in data.gym_stats.last_28_days %}
+        <div class="gym-heat-cell {% if day.attended %}attended{% endif %} {% if day.is_today %}today-cell{% endif %}"
+             title="{{ day.date }}: {% if day.attended %}Asistió al Gym ✓{% else %}Día de descanso / No asistió{% endif %}">
+          <span style="font-size:0.65rem; opacity:0.75;">{{ day.weekday }}</span>
+          <span style="font-weight:700; font-size:0.8rem;">{{ day.day_num }}</span>
+          {% if day.attended %}
+          <span style="font-size:0.6rem; color:#10b981;">✓</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Tareas del Gym detectadas -->
+    <div style="margin-top:1rem; border-top:1px solid var(--border-subtle); padding-top:0.85rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+        <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);">Tareas Recurrentes de Entrenamiento Registradas:</span>
+        <a href="/recurrent" class="btn btn-secondary btn-sm" style="font-size:0.72rem; padding:0.2rem 0.5rem;" title="Gestionar reglas del cron">Configurar Crones</a>
+      </div>
+      {% for t in data.gym_stats.recent_completed_tasks %}
+      <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.6); padding:0.5rem 0.75rem; border-radius:var(--radius-sm); margin-bottom:0.4rem; font-size:0.8rem; border:1px solid var(--border-subtle);">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="color:var(--accent-emerald);">✓</span>
+          <span style="font-weight:600;">{{ t.title }}</span>
+          <span class="card-scope-badge" style="font-size:0.68rem;">{{ t.scope }}</span>
+        </div>
+        <span style="color:var(--text-muted); font-size:0.75rem;">{{ t.target_date or (t.created_at | string)[:10] }}</span>
+      </div>
+      {% else %}
+      <p style="font-size:0.78rem; color:var(--text-muted);">
+        💡 Las tareas creadas por el cron de "Ir al gym" se contabilizan automáticamente aquí cuando las marcas como completadas en Kindle o el Portal Pro.
+      </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Column 2: Evolución de Peso & Gráfica -->
+  <div class="health-card">
+    <div class="health-card-header">
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <span style="font-size:1.25rem;">📉</span>
+        <div>
+          <h3 style="font-size:1.05rem; font-weight:700;">Evolución de Peso & Tendencia</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted);">Mediciones periódicas hacia el objetivo de {{ data.weight_stats.target_weight }} kg</p>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openModal('modal-log-weight')">
+        <span>+</span>
+        <span>Añadir Pesaje</span>
+      </button>
+    </div>
+
+    <!-- Weight SVG Trend Graph -->
+    <div class="weight-chart-box">
+      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:0.5rem;">
+        <span>Inicial: <strong>{{ data.weight_stats.initial_weight }} kg</strong></span>
+        <span>Actual: <strong style="color:var(--accent-emerald)">{{ data.weight_stats.current_weight }} kg</strong></span>
+        <span>Meta: <strong style="color:var(--accent-primary)">{{ data.weight_stats.target_weight }} kg</strong></span>
+      </div>
+
+      <!-- Simple inline SVG Sparkline/Chart -->
+      <svg class="weight-chart-svg" viewBox="0 0 500 130">
+        <!-- Target Weight Guide Line -->
+        <line x1="10" y1="105" x2="490" y2="105" stroke="rgba(59, 130, 246, 0.4)" stroke-dasharray="4" stroke-width="1.5"/>
+        <text x="490" y="100" fill="var(--accent-primary)" font-size="10" text-anchor="end">Meta: {{ data.weight_stats.target_weight }}kg</text>
+
+        <!-- Dynamic trend line -->
+        {% if data.weight_stats.logs | length >= 2 %}
+          {% set count = data.weight_stats.logs | length %}
+          {% set min_w = data.weight_stats.target_weight - 1.0 %}
+          {% set max_w = data.weight_stats.initial_weight + 1.0 %}
+          {% set range_w = max_w - min_w if max_w > min_w else 1.0 %}
+          
+          <polyline fill="none" stroke="var(--accent-emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+            points="
+            {% for log in data.weight_stats.logs | reverse %}
+              {% set x = 30 + loop.index0 * (440 / (count - 1 if count > 1 else 1)) %}
+              {% set y = 15 + ((max_w - log.weight) / range_w) * 90 %}
+              {{ x }},{{ y }} 
+            {% endfor %}
+            " />
+
+          {% for log in data.weight_stats.logs | reverse %}
+            {% set x = 30 + loop.index0 * (440 / (count - 1 if count > 1 else 1)) %}
+            {% set y = 15 + ((max_w - log.weight) / range_w) * 90 %}
+            <circle cx="{{ x }}" cy="{{ y }}" r="4.5" fill="var(--bg-primary)" stroke="var(--accent-emerald)" stroke-width="2.5" />
+            <text x="{{ x }}" y="{{ y - 8 }}" fill="var(--text-primary)" font-size="10" font-weight="bold" text-anchor="middle">{{ log.weight }}k</text>
+          {% endfor %}
+        {% else %}
+          <text x="250" y="65" fill="var(--text-muted)" font-size="12" text-anchor="middle">Registra al menos 2 pesajes para visualizar la curva de tendencia</text>
+        {% endif %}
+      </svg>
+    </div>
+
+    <!-- Weight Logs Table -->
+    <div style="max-height: 180px; overflow-y: auto; margin-top: 1rem;">
+      <table class="data-table" style="font-size:0.8rem;">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Peso</th>
+            <th>Diferencia</th>
+            <th>Notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in data.weight_stats.logs %}
+          <tr>
+            <td style="font-weight:600;">{{ log.date }}</td>
+            <td style="color:var(--text-primary); font-weight:700;">{{ log.weight }} kg</td>
+            <td>
+              {% set diff = log.weight - data.weight_stats.initial_weight %}
+              <span style="color:{% if diff <= 0 %}var(--accent-emerald){% else %}var(--accent-rose){% endif %}; font-weight:600;">
+                {% if diff > 0 %}+{% endif %}{{ diff | round(1) }} kg
+              </span>
+            </td>
+            <td style="color:var(--text-muted); font-size:0.75rem;">{{ log.notes or '-' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Programa Trimestral de 3 Meses (Mini-Proyecto de Salud) -->
+<section class="health-card" style="margin-bottom: 2rem;">
+  <div class="health-card-header" style="flex-wrap:wrap; gap:1rem;">
+    <div>
+      <div style="display:inline-flex; align-items:center; gap:0.4rem; background:rgba(99,102,241,0.15); color:#a5b4fc; padding:0.2rem 0.6rem; border-radius:var(--radius-full); font-size:0.72rem; font-weight:700; margin-bottom:0.35rem;">
+        <span>🎯 MINI-PROYECTO DE 12 SEMANAS</span>
+      </div>
+      <h2 style="font-size:1.35rem; font-weight:800; letter-spacing:-0.01em;">{{ data.program.title }}</h2>
+      <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.2rem;">
+        Meta: Reducción controlada de <strong>{{ data.program.target_loss_kg }} kg</strong> de grasa preservando masa muscular magra.
+      </p>
+    </div>
+
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <button class="btn btn-secondary btn-sm" onclick="syncProgramToCrons('{{ data.profile_id }}')" title="Crea reglas de crones periódicas en el puerto 8090 para recordarte ir al gym y pesarte">
+        <span>⚡</span>
+        <span>Sincronizar con Crones</span>
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-ai-program')" title="Generar un nuevo programa personalizado de 3 meses">
+        <span>✨</span>
+        <span>Re-generar con IA</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 3 Phases Stepper Progress Bar -->
+  <div class="phases-stepper-container">
+    {% for phase in data.program.phases %}
+    <div class="phase-step-card {% if phase.status == 'in_progress' %}active-phase{% elif phase.status == 'completed' %}completed-phase{% endif %}">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+        <span class="phase-badge">{{ phase.weeks }}</span>
+        {% if phase.status == 'in_progress' %}
+        <span style="font-size:0.7rem; font-weight:700; color:var(--accent-primary); text-transform:uppercase;">● En Curso</span>
+        {% elif phase.status == 'completed' %}
+        <span style="font-size:0.7rem; font-weight:700; color:var(--accent-emerald);">✓ Completada</span>
+        {% else %}
+        <span style="font-size:0.7rem; font-weight:600; color:var(--text-muted);">Próxima</span>
+        {% endif %}
+      </div>
+      <h4 style="font-size:0.92rem; font-weight:700; margin-bottom:0.25rem;">{{ phase.name }}</h4>
+      <p style="font-size:0.75rem; color:var(--text-secondary); line-height:1.4;">{{ phase.goal }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Interactive Program Tabs: Workout Split, Nutrition & Habits -->
+  <div style="margin-top: 1.5rem;">
+    <div class="program-tabs-bar">
+      <button class="program-tab-btn active" onclick="switchProgramTab(this, 'tab-workout')">
+        <span>🏋️</span> Rutina de Entrenamiento ({{ data.program.workout_split.days_per_week }} Días)
+      </button>
+      <button class="program-tab-btn" onclick="switchProgramTab(this, 'tab-nutrition')">
+        <span>🥗</span> Nutrición, Calorías & Macros
+      </button>
+      <button class="program-tab-btn" onclick="switchProgramTab(this, 'tab-habits')">
+        <span>🧘</span> Pautas de Hábitos & Recuperación
+      </button>
+    </div>
+
+    <!-- Tab 1: Workout Split Routine -->
+    <div id="tab-workout" class="program-tab-content active">
+      <div style="margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;">
+        <p style="font-size:0.85rem; color:var(--text-secondary);">
+          Estructura: <strong>{{ data.program.workout_split.type }}</strong>
+        </p>
+        <span style="font-size:0.78rem; background:rgba(59,130,246,0.15); color:#93c5fd; padding:0.2rem 0.6rem; border-radius:var(--radius-full); font-weight:600;">
+          {{ data.program.workout_split.days_per_week }} sesiones de fuerza / semana
+        </span>
+      </div>
+
+      <div class="workout-days-grid">
+        {% for day in data.program.workout_split.days %}
+        <div class="workout-day-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:0.4rem; margin-bottom:0.6rem;">
+            <span style="font-weight:700; font-size:0.9rem; color:var(--accent-primary);">{{ day.day_name }}</span>
+            <span style="font-size:0.72rem; color:var(--text-muted); font-weight:500;">Fuerza & Acondicionamiento</span>
+          </div>
+          <div style="font-size:0.8rem; font-weight:600; color:var(--text-primary); margin-bottom:0.5rem;">
+            {{ day.focus }}
+          </div>
+          <ul class="exercise-list">
+            {% for ex in day.exercises %}
+            <li>{{ ex }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Tab 2: Nutrition & Macros -->
+    <div id="tab-nutrition" class="program-tab-content">
+      <!-- Macros Split Cards -->
+      <div class="macros-grid">
+        <div class="macro-card">
+          <span style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); font-weight:700;">Calorías Diarias</span>
+          <span style="font-size:1.6rem; font-weight:800; color:var(--text-primary);">{{ data.program.nutrition_plan.daily_calories }} <span style="font-size:0.85rem; font-weight:500;">kcal</span></span>
+          <span style="font-size:0.72rem; color:var(--accent-emerald);">Déficit calórico de ~400 kcal</span>
+        </div>
+
+        <div class="macro-card" style="border-top:3px solid #3b82f6;">
+          <span style="font-size:0.75rem; text-transform:uppercase; color:#93c5fd; font-weight:700;">Proteína (Alta)</span>
+          <span style="font-size:1.6rem; font-weight:800; color:#3b82f6;">{{ data.program.nutrition_plan.protein_g }}g</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">2.0g por kg de masa corporal</span>
+        </div>
+
+        <div class="macro-card" style="border-top:3px solid #f59e0b;">
+          <span style="font-size:0.75rem; text-transform:uppercase; color:#fde68a; font-weight:700;">Carbohidratos</span>
+          <span style="font-size:1.6rem; font-weight:800; color:#f59e0b;">{{ data.program.nutrition_plan.carbs_g }}g</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">Energía para el entrenamiento</span>
+        </div>
+
+        <div class="macro-card" style="border-top:3px solid #10b981;">
+          <span style="font-size:0.75rem; text-transform:uppercase; color:#a7f3d0; font-weight:700;">Grasas Saludables</span>
+          <span style="font-size:1.6rem; font-weight:800; color:#10b981;">{{ data.program.nutrition_plan.fats_g }}g</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">Salud hormonal y absorción</span>
+        </div>
+      </div>
+
+      <div style="background:rgba(15,23,42,0.6); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:1.25rem; margin-top:1.25rem;">
+        <h4 style="font-size:0.95rem; font-weight:700; margin-bottom:0.5rem; color:var(--accent-primary);">Estrategia del Nutriólogo Deportivo:</h4>
+        <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.5; margin-bottom:1rem;">
+          {{ data.program.nutrition_plan.strategy }}
+        </p>
+
+        <h5 style="font-size:0.85rem; font-weight:700; margin-bottom:0.5rem;">Pautas de Alimentación Recomendadas:</h5>
+        <ul style="padding-left:1.25rem; font-size:0.825rem; color:var(--text-secondary); display:flex; flex-direction:column; gap:0.4rem;">
+          {% for guide in data.program.nutrition_plan.meal_guidelines %}
+          <li>{{ guide }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Tab 3: Habits & Lifestyle -->
+    <div id="tab-habits" class="program-tab-content">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+        <div class="habit-guide-box">
+          <span style="font-size:1.5rem;">💤</span>
+          <h4 style="font-weight:700; font-size:0.95rem; margin:0.3rem 0;">Sueño & Recuperación</h4>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Dormir entre 7 y 8 horas ininterrumpidas. El 80% de la hormona de crecimiento y la quema lipolítica se maximiza durante la fase profunda del sueño.
+          </p>
+        </div>
+
+        <div class="habit-guide-box">
+          <span style="font-size:1.5rem;">💧</span>
+          <h4 style="font-weight:700; font-size:0.95rem; margin:0.3rem 0;">Hidratación Celular</h4>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Mantener un consumo mínimo de {{ data.profile.water_goal_liters }} litros diarios. La deshidratación disminuye la fuerza muscular hasta un 15% y retarda el metabolismo basal.
+          </p>
+        </div>
+
+        <div class="habit-guide-box">
+          <span style="font-size:1.5rem;">🚶‍♂️</span>
+          <h4 style="font-weight:700; font-size:0.95rem; margin:0.3rem 0;">Gasto Calórico No-Ejercicio (NEAT)</h4>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Caminar 60 minutos al día (~10,000 pasos). El NEAT quema hasta 3 veces más grasa a lo largo de la semana que una sola sesión extenuante de cardio.
+          </p>
+        </div>
+
+        <div class="habit-guide-box">
+          <span style="font-size:1.5rem;">⚖️</span>
+          <h4 style="font-weight:700; font-size:0.95rem; margin:0.3rem 0;">Control de Peso Semanal</h4>
+          <p style="font-size:0.8rem; color:var(--text-secondary);">
+            Pesarse únicamente 1 vez por semana los domingos por la mañana, en ayunas y tras ir al baño. Evita obsesionarte con fluctuaciones diarias de agua.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================================
+     MODALS
+     ========================================================================== -->
+
+<!-- Modal: Log Weight -->
+<div id="modal-log-weight" class="modal-overlay">
+  <div class="modal-dialog" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Registrar Nuevo Pesaje</h3>
+      <button class="modal-close" onclick="closeModal('modal-log-weight')">&times;</button>
+    </div>
+    <form onsubmit="submitWeightEntry(event)">
+      <input type="hidden" name="profile_id" value="{{ data.profile_id }}">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Peso Corporal (kg) *</label>
+          <input type="number" step="0.1" name="weight" class="form-control" placeholder="Ej. 82.8" required value="{{ data.weight_stats.current_weight }}" style="font-size:1.2rem; font-weight:700;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Fecha del Pesaje</label>
+          <input type="date" name="date_str" class="form-control" id="log-weight-date">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Notas o Sensaciones</label>
+          <input type="text" name="notes" class="form-control" placeholder="Ej. Buena energía, en ayunas, después de entrenar pierna">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modal-log-weight')">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Guardar Pesaje</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Edit Profile Goals -->
+<div id="modal-health-profile" class="modal-overlay">
+  <div class="modal-dialog" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">Ajustar Metas de Salud ({{ data.profile.name }})</h3>
+      <button class="modal-close" onclick="closeModal('modal-health-profile')">&times;</button>
+    </div>
+    <form onsubmit="submitUpdateProfileGoals(event)">
+      <input type="hidden" name="profile_id" value="{{ data.profile_id }}">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Estatura (cm)</label>
+            <input type="number" name="height_cm" class="form-control" value="{{ data.profile.height_cm }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Peso Objetivo / Meta (kg) *</label>
+            <input type="number" step="0.5" name="target_weight" class="form-control" value="{{ data.profile.target_weight }}" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Meta Gym (Días/Semana)</label>
+            <select name="weekly_gym_goal" class="form-control">
+              <option value="3" {% if data.profile.weekly_gym_goal == 3 %}selected{% endif %}>3 Días (Full Body)</option>
+              <option value="4" {% if data.profile.weekly_gym_goal == 4 %}selected{% endif %}>4 Días (Torso / Pierna)</option>
+              <option value="5" {% if data.profile.weekly_gym_goal == 5 %}selected{% endif %}>5 Días (Push / Pull / Legs)</option>
+              <option value="6" {% if data.profile.weekly_gym_goal == 6 %}selected{% endif %}>6 Días (Avanzado)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Caminata Diaria (Horas)</label>
+            <input type="number" step="0.25" name="daily_walking_hours" class="form-control" value="{{ data.profile.daily_walking_hours }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Objetivo de Hidratación (Litros/Día)</label>
+          <input type="number" step="0.5" name="water_goal_liters" class="form-control" value="{{ data.profile.water_goal_liters }}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modal-health-profile')">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm">Actualizar Metas</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Generate 3-Month Program with Gemini AI -->
+<div id="modal-ai-program" class="modal-overlay">
+  <div class="modal-dialog" style="max-width: 580px;">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title">Generador de Programa Trimestral con IA</h3>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">Diseñado por Gemini 3.6 Flash actuando como Nutriólogo y Preparador Físico (CSCS)</p>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-ai-program')">&times;</button>
+    </div>
+    <form onsubmit="submitGenerateAiProgram(event)">
+      <input type="hidden" name="profile_id" value="{{ data.profile_id }}">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Kilos a perder en el trimestre *</label>
+            <input type="number" step="0.5" name="target_loss_kg" class="form-control" value="8.0" required>
+            <span style="font-size:0.72rem; color:var(--text-muted);">Recomendado: 5kg a 10kg en 12 semanas (seguro y sin rebote)</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Duración (Semanas)</label>
+            <input type="number" name="weeks" class="form-control" value="12" readonly>
+            <span style="font-size:0.72rem; color:var(--text-muted);">1 trimestre = 3 fases de 4 semanas</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Días disponibles para entrenar fuerza / gym *</label>
+          <select name="gym_days_available" class="form-control">
+            <option value="4" selected>4 Días por semana (Recomendado: Torso / Pierna)</option>
+            <option value="3">3 Días por semana (Full-Body / Acondicionamiento)</option>
+            <option value="5">5 Días por semana (Push / Pull / Legs)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Preferencias Nutricionales & Estilo de Vida</label>
+          <input type="text" name="diet_preferences" class="form-control" value="Alta en proteína magra, carbohidratos complejos y verduras">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal('modal-ai-program')">Cancelar</button>
+        <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-ai-program">
+          <span>✨</span>
+          <span>Generar Plan de 3 Meses</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

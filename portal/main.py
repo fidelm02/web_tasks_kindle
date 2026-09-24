@@ -15,7 +15,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from portal.routers import estimator, kanban, recurrent
+from portal.routers import estimator, health, kanban, recurrent
 from portal.services import recurrent_engine
 
 # Configurar logging
@@ -94,9 +94,10 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(kanban.router)
 app.include_router(recurrent.router)
 app.include_router(estimator.router)
+app.include_router(health.router)
 
 
-@app.get("/health")
+@app.get("/api/system/health")
 async def health_check():
     """Endpoint de salud del portal."""
     return {"status": "healthy", "service": "Kindle Tasks Pro Portal", "port": 8090}
