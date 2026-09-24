@@ -776,6 +776,127 @@ async function quickAssignToday(taskId, scope) {
   }
 }
 
+// Open Day Detail Pop-up Modal with complete task information
+function openDayDetailModal(dateStr, tasksJson) {
+  const tasks = typeof tasksJson === 'string' ? JSON.parse(tasksJson) : (tasksJson || []);
+  
+  if (!dateStr) return;
+  const parts = dateStr.split('-');
+  const dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  const weekday = dateObj.toLocaleDateString('es-ES', { weekday: 'long' });
+  const fullDate = dateObj.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const weekdayElem = document.getElementById('day-modal-weekday');
+  if (weekdayElem) weekdayElem.textContent = weekday;
+
+  const titleElem = document.getElementById('day-modal-title');
+  if (titleElem) titleElem.textContent = fullDate.charAt(0).toUpperCase() + fullDate.slice(1);
+
+  const addBtn = document.getElementById('day-modal-add-btn');
+  if (addBtn) {
+    addBtn.onclick = () => {
+      closeModal('modal-day-tasks');
+      quickScheduleDay(dateStr);
+    };
+  }
+
+  let totalSp = 0;
+  tasks.forEach(t => {
+    const sp = parseFloat(t.story_points || 0);
+    if (!isNaN(sp)) totalSp += sp;
+  });
+
+  const spBadge = document.getElementById('day-modal-sp-badge');
+  if (spBadge) spBadge.textContent = `${totalSp.toFixed(1)} SP`;
+
+  const countElem = document.getElementById('day-modal-count');
+  if (countElem) countElem.textContent = `${tasks.length} ${tasks.length === 1 ? 'tarea registrada' : 'tareas registradas'}`;
+
+  const container = document.getElementById('day-modal-tasks-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (tasks.length === 0) {
+    container.innerHTML = `
+      <div style="text-align:center; padding:2.5rem 1rem; color:var(--text-muted);">
+        <p style="font-size:1rem; margin-bottom:0.75rem;">No hay tareas programadas para este día.</p>
+        <button class="btn btn-primary btn-sm" onclick="closeModal('modal-day-tasks'); quickScheduleDay('${dateStr}');">
+          + Programar una tarea aquí
+        </button>
+      </div>
+    `;
+  } else {
+    tasks.forEach(task => {
+      const card = document.createElement('div');
+      card.className = 'day-task-card';
+
+      const timeSlotHtml = task.start_time
+        ? `<span style="font-size:0.75rem; color:#93c5fd; background:rgba(59,130,246,0.15); padding:0.15rem 0.5rem; border-radius:var(--radius-sm); font-weight:600;">⏰ ${task.start_time}${task.end_time ? ' - ' + task.end_time : ''}</span>`
+        : `<span style="font-size:0.75rem; color:var(--text-muted);">Sin horario específico</span>`;
+
+      const subtasksInfo = (task.subtasks_count > 0)
+        ? `<span class="subtasks-progress" style="font-size:0.75rem;">✓ ${task.subtasks_completed}/${task.subtasks_count} subtareas completadas</span>`
+        : '';
+
+      const taskJsonEscaped = JSON.stringify(task).replace(/"/g, '&quot;');
+
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap;">
+            <span class="card-scope-badge" style="background:rgba(59,130,246,0.2); color:#93c5fd; font-weight:700;">${task.code || 'ID'}</span>
+            <span class="card-scope-badge">${task.scope}</span>
+            <span class="priority-pill priority-${(task.priority || 'media').toLowerCase()}">${task.priority}</span>
+            <span class="priority-pill" style="background:rgba(139,92,246,0.15); color:#c4b5fd;">${(task.stage || 'todo').replace('_', ' ').toUpperCase()}</span>
+            ${task.story_points ? `<span class="sp-badge">🎯 ${task.story_points} SP</span>` : ''}
+          </div>
+          <div>${timeSlotHtml}</div>
+        </div>
+
+        <div style="font-size:1rem; font-weight:700; color:var(--text-primary); cursor:pointer;" onclick="closeModal('modal-day-tasks'); openTaskDetailModal(${taskJsonEscaped})">
+          ${task.title}
+        </div>
+
+        ${task.description ? `<p style="font-size:0.825rem; color:var(--text-secondary); line-height:1.4; margin:0;">${task.description}</p>` : ''}
+        ${subtasksInfo}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-subtle); padding-top:0.6rem; margin-top:0.2rem; flex-wrap:wrap; gap:0.5rem;">
+          <div style="display:flex; gap:0.35rem; align-items:center;">
+            <a href="${task.google_cal_url || '#'}" target="_blank" class="btn btn-secondary btn-sm" title="Bloquear evento en Google Calendar">
+              <span>📅</span>
+              <span>Google Cal</span>
+            </a>
+            <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-day-tasks'); analyzeTaskWithAi('${task.id}', '${task.scope}')" title="Analizar con Gemini">
+              <span>✨</span>
+              <span>IA</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="closeModal('modal-day-tasks'); openTaskDetailModal(${taskJsonEscaped})" title="Ver o editar detalles">
+              <span>✏️</span>
+              <span>Detalles</span>
+            </button>
+          </div>
+
+          <div style="display:flex; gap:0.4rem; align-items:center;">
+            <select class="quick-move-select" onchange="handleTableStageChange('${task.id}', '${task.scope}', this.value)" title="Mover etapa">
+              <option value="backlog" ${task.stage === 'backlog' ? 'selected' : ''}>Backlog</option>
+              <option value="todo" ${task.stage === 'todo' ? 'selected' : ''}>Por Hacer</option>
+              <option value="in_progress" ${task.stage === 'in_progress' ? 'selected' : ''}>En Progreso</option>
+              <option value="review" ${task.stage === 'review' ? 'selected' : ''}>En Revisión</option>
+              <option value="done" ${task.stage === 'done' ? 'selected' : ''}>Completado</option>
+            </select>
+            <button class="btn btn-danger btn-sm" onclick="deleteTask('${task.id}', '${task.scope}'); closeModal('modal-day-tasks');" title="Eliminar tarea">
+              🗑
+            </button>
+          </div>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  openModal('modal-day-tasks');
+}
+
+
 // Close Context Menu on Global Click
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('card-context-menu');
