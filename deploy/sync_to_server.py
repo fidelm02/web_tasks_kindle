@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Script de sincronización y despliegue hacia el servidor local (Kindle Web Tasks).
+
+Uso:
+    python3 deploy/sync_to_server.py
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+# Agregar ruta para cargar configuración del servidor
+CURRENT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = CURRENT_DIR.parent
+WORKSPACE_ROOT = REPO_ROOT.parent
+TESTS_DIR = WORKSPACE_ROOT / "tests"
+
+if str(TESTS_DIR) not in sys.path:
+    sys.path.append(str(TESTS_DIR))
+
+try:
+    from data_mini_server import data as server_config  # type: ignore
+except ImportError:
+    print("Error: No se pudo encontrar tests/data_mini_server.py")
+    sys.exit(1)
+
+import paramiko
+
+
+def execute_ssh_command(client: paramiko.SSHClient, cmd: str) -> tuple[int, str, str]:
+    """Execute command over SSH and return exit status, stdout and stderr."""
+    stdin, stdout, stderr = client.exec_command(cmd)
+    exit_code = stdout.channel.recv_exit_status()
+    out = stdout.read().decode("utf-8").strip()
+    err = stderr.read().decode("utf-8").strip()
+    return exit_code, out, err
+
+
+def main() -> None:
+    print("[1/4] Conectando por SSH al servidor...")
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        client.connect(
+            server_config["ip"],
+            username=server_config["user"],
+            password=server_config["pass"],
+            timeout=10,
+        )
+    except Exception as exc:
+        print(f"Error al conectar por SSH: {exc}")
+        sys.exit(1)
+
+    repo_path = server_config.get("repo_path", "/home/fmoreno/Dev/web_tasks_kindle")
+
+    try:
+        # Paso 1: Detener el servicio
+        print("[2/4] Deteniendo servicio en el servidor...")
+        code, out, err = execute_ssh_command(
+            client, f"cd {repo_path} && python3 kindle_web.py stop"
+        )
+        if out:
+            print(f"       {out}")
+        if err:
+            print(f"       [Aviso]: {err}")
+
+        # Paso 2: Git pull y sincronización de constants.py
+        print("[3/4] Ejecutando git pull y sincronizando archivos...")
+        code, out, err = execute_ssh_command(
+            client, f"cd {repo_path} && git pull origin main"
+        )
+        if out:
+            print(f"       Git: {out}")
+        if err:
+            print(f"       Git info/err: {err}")
+
+        # Sincronizar app/constants.py local hacia el servidor remoto vía SFTP
+        local_constants = REPO_ROOT / "app" / "constants.py"
+        if local_constants.exists():
+            sftp = client.open_sftp()
+            remote_constants = f"{repo_path}/app/constants.py"
+            sftp.put(str(local_constants), remote_constants)
+            sftp.close()
+            print("       Sincronizado app/constants.py vía SFTP exitosamente.")
+
+        # Paso 3: Volver a iniciar el servicio
+        print("[4/4] Iniciando el servicio nuevamente en el servidor...")
+        code, out, err = execute_ssh_command(
+            client, f"cd {repo_path} && python3 kindle_web.py start"
+        )
+        if out:
+            print(f"       {out}")
+        if err:
+            print(f"       [Aviso]: {err}")
+
+        # Verificar estado final
+        code, status_out, _ = execute_ssh_command(
+            client, f"cd {repo_path} && python3 kindle_web.py status"
+        )
+        print("\nEstado final del servicio:")
+        print(status_out)
+
+        print("\n✓ ¡Sincronización al servidor completada con éxito!")
+
+    finally:
+        client.close()
+
+
+if __name__ == "__main__":
+    main()
