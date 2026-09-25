@@ -461,18 +461,38 @@ def process_whatsapp_message(
             dt_end = dt_start + timedelta(hours=1)
             dates_param = f"{event_date.replace('-', '')}/{event_date.replace('-', '')}"
 
-        # 1. Despachar invitación formal iCalendar (.ics) por correo vía SMTP
-        ics_ok, ics_err = _send_calendar_invite(
-            to_emails=invite_emails,
-            organizer_email="fidelm02@gmail.com",
-            organizer_name=sender_name,
-            title=title,
-            description=desc,
-            start_dt=dt_start,
-            end_dt=dt_end,
-        )
+        # 1. Intentar inserción DIRECTA vía Google Calendar API (si OAuth está vinculado)
+        from portal.services import google_calendar_service
 
-        # 2. Generar enlace de respaldo 1-clic a Google Calendar con invitados precargados
+        api_success = False
+        api_link = None
+        if google_calendar_service.is_connected():
+            api_ok, api_msg, api_link = google_calendar_service.create_calendar_event(
+                title=title,
+                description=desc,
+                start_dt=dt_start,
+                end_dt=dt_end,
+                attendee_emails=invite_emails,
+            )
+            api_success = api_ok
+            if not api_ok:
+                logger.warning("Fallo al insertar en Google Calendar API: %s", api_msg)
+
+        # 2. Si no está vinculado por API o falló, enviar invitación formal iCalendar (.ics) por SMTP
+        ics_ok = False
+        ics_err = ""
+        if not api_success:
+            ics_ok, ics_err = _send_calendar_invite(
+                to_emails=invite_emails,
+                organizer_email="fidelm02@gmail.com",
+                organizer_name=sender_name,
+                title=title,
+                description=desc,
+                start_dt=dt_start,
+                end_dt=dt_end,
+            )
+
+        # 3. Enlace web de Google Calendar
         gcal_params = {
             "action": "TEMPLATE",
             "text": title,
@@ -480,9 +500,9 @@ def process_whatsapp_message(
             "dates": dates_param,
             "add": ",".join(invite_emails),
         }
-        gcal_link = f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
+        gcal_link = api_link or f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
 
-        # 3. Guardar en base de datos de tareas con fecha para time-blocking en portal
+        # 4. Guardar en base de datos de tareas con fecha para time-blocking en portal
         storage.create_task(
             title=f"📅 {title} ({start_time})",
             description=f"{desc}\n\nGoogle Calendar: {gcal_link}",
@@ -492,17 +512,28 @@ def process_whatsapp_message(
         )
 
         target_display = "Fidel" if target == "fidel" else "Lau"
-        inv_notice = "✓ *Invitación formal (.ics) enviada a:* " + ", ".join(attendees_labels) if ics_ok else f"⚠️ Error enviando tarjeta .ics: {ics_err}"
 
-        reply_text = (
-            f"📅 *Evento agendado para {target_display}*:\n"
-            f"📌 *{title}*\n"
-            f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
-            f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
-            f"{inv_notice}\n"
-            f"*(Google Calendar y Hotmail detectan el correo y lo añaden al calendario)*\n\n"
-            f"🔗 *Abrir directamente en Google Calendar:*\n{gcal_link}"
-        )
+        if api_success:
+            reply_text = (
+                f"📅 *Evento creado DIRECTAMENTE en tu Google Calendar*:\n"
+                f"📌 *{title}*\n"
+                f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
+                f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
+                f"✓ *Insertado en tu cuenta (`fidelm02@gmail.com`) y Google despachó la invitación formal a Lau para confirmar.*\n\n"
+                f"🔗 *Ver en Google Calendar:*\n{gcal_link}"
+            )
+        else:
+            inv_notice = "✓ *Invitación formal (.ics) enviada a:* " + ", ".join(attendees_labels) if ics_ok else f"⚠️ Error enviando tarjeta .ics: {ics_err}"
+            reply_text = (
+                f"📅 *Evento agendado para {target_display}*:\n"
+                f"📌 *{title}*\n"
+                f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
+                f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
+                f"{inv_notice}\n"
+                f"*(Google Calendar y Hotmail añaden el evento automáticamente al recibir el correo)*\n\n"
+                f"👉 *Para inserción 100% directa por API sin correos, autoriza aquí:* http://192.168.0.98:8090/google/login\n\n"
+                f"🔗 *Abrir directamente en Google Calendar:*\n{gcal_link}"
+            )
 
     # =========================================================================
     # EJECUTOR 3: CREAR TAREA (KINDLE / PORTAL)
