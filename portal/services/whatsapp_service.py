@@ -59,13 +59,14 @@ REGLAS DE INTERPRETACIÓN:
    - "body": Redacción completa del mensaje, estructurada, cordial y clara.
 
 2. "calendar_event" (Agendar Evento / Cita en Google Calendar):
-   - Cuando se mencione agendar una cita, reunión, compromiso con hora específica o bloqueo de tiempo (ej: "agenda cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00").
+   - Cuando se mencione agendar una cita, reunión, compromiso con hora específica o bloqueo de tiempo (ej: "agenda cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00", "agenda evento e invita a Lau").
    - "target": "fidel" o "lau".
    - "title": Título del evento o cita.
    - "description": Detalles o notas del evento.
    - "event_date": Fecha en formato YYYY-MM-DD.
    - "start_time": Hora de inicio en formato HH:MM (24 horas, ej. "16:00" o "10:30"). Si no indican hora específica, usar "09:00".
    - "duration_minutes": Duración estimada en minutos (ej. 30, 60, etc., por defecto 60).
+   - "invite_lau": true si se menciona invitar a Lau / Laura / Lalis o si el evento es para ambos.
 
 3. "task" (Crear Tarea):
    - Cuando se mencione una tarea por hacer, comprar, recordar, pendiente, trámite o actividad (que no sea un evento con hora fija ni envío de correo).
@@ -109,7 +110,8 @@ DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EX
     "description": "Limpieza dental",
     "event_date": "YYYY-MM-DD",
     "start_time": "16:00",
-    "duration_minutes": 60
+    "duration_minutes": 60,
+    "invite_lau": true
   }},
   "task": {{
     "title": "Título de la tarea",
@@ -183,6 +185,106 @@ def _send_whatsapp_email(
     except Exception as exc:
         logger.error("Error al enviar correo desde WhatsApp: %s", exc)
         return False, str(exc)
+
+
+def _send_calendar_invite(
+    to_emails: list[str],
+    organizer_email: str,
+    organizer_name: str,
+    title: str,
+    description: str,
+    start_dt: datetime,
+    end_dt: datetime,
+) -> tuple[bool, str]:
+    """Envía una invitación formal de calendario (.ics) vía Gmail SMTP.
+
+    Google Calendar y Outlook/Hotmail detectan el método REQUEST y
+    agregan el evento automáticamente a los calendarios de los destinatarios.
+    """
+    from email.message import EmailMessage
+    import smtplib
+    import uuid
+    from app.constants import GMAIL_SENDER_EMAIL, GMAIL_APP_PASSWORD
+
+    sender = GMAIL_SENDER_EMAIL or "fidelm02@gmail.com"
+    app_pwd = GMAIL_APP_PASSWORD or ""
+    if not app_pwd:
+        return False, "GMAIL_APP_PASSWORD no configurado en app/constants.py"
+
+    clean_to = [e.strip() for e in to_emails if e and "@" in e]
+    if not clean_to:
+        return False, "No hay correos de destino válidos"
+
+    uid = f"{uuid.uuid4()}@kindletasks.local"
+    dtstamp = datetime.now().strftime("%Y%m%dT%H%M%SZ")
+    dtstart = start_dt.strftime("%Y%m%dT%H%M%S")
+    dtend = end_dt.strftime("%Y%m%dT%H%M%S")
+
+    attendee_lines = []
+    for em in clean_to:
+        name = "Fidel Moreno" if "fidel" in em else "Laura (Lalis)"
+        attendee_lines.append(
+            f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={name}:mailto:{em}"
+        )
+    attendees_str = "\r\n".join(attendee_lines)
+
+    ics_content = (
+        "BEGIN:VCALENDAR\r\n"
+        "PRODID:-//Kindle Tasks Pro//ES\r\n"
+        "VERSION:2.0\r\n"
+        "METHOD:REQUEST\r\n"
+        "CALSCALE:GREGORIAN\r\n"
+        "BEGIN:VEVENT\r\n"
+        f"UID:{uid}\r\n"
+        f"DTSTAMP:{dtstamp}\r\n"
+        f"ORGANIZER;CN={organizer_name}:mailto:{organizer_email}\r\n"
+        f"{attendees_str}\r\n"
+        f"DTSTART:{dtstart}\r\n"
+        f"DTEND:{dtend}\r\n"
+        f"SUMMARY:{title}\r\n"
+        f"DESCRIPTION:{description}\r\n"
+        "STATUS:CONFIRMED\r\n"
+        "SEQUENCE:0\r\n"
+        "BEGIN:VALARM\r\n"
+        "TRIGGER:-PT15M\r\n"
+        "ACTION:DISPLAY\r\n"
+        "DESCRIPTION:Recordatorio de Evento\r\n"
+        "END:VALARM\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Invitación: {title}"
+    msg["From"] = f"{organizer_name} <{sender}>"
+    msg["To"] = ", ".join(clean_to)
+    msg.set_content(
+        f"Has recibido una invitación de calendario para:\n\n"
+        f"📌 Evento: {title}\n"
+        f"🕒 Horario: {start_dt.strftime('%Y-%m-%d %H:%M')} - {end_dt.strftime('%H:%M')}\n"
+        f"📝 Detalles: {description}\n\n"
+        f"Se adjunta la tarjeta iCalendar (.ics) para sincronización automática en Google Calendar y Hotmail/Outlook.\n\n"
+        f"---\n"
+        f"Enviado automáticamente por el Asistente Chismoso (Kindle Tasks Pro)."
+    )
+
+    msg.add_attachment(
+        ics_content.encode("utf-8"),
+        maintype="text",
+        subtype="calendar",
+        filename="invite.ics",
+        params={"method": "REQUEST", "name": "invite.ics"},
+    )
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=25) as s:
+            s.login(sender, app_pwd)
+            s.send_message(msg)
+        return True, "Invitación enviada exitosamente"
+    except Exception as exc:
+        logger.error("Error al enviar invitación de calendario: %s", exc)
+        return False, str(exc)
+
 
 
 def process_whatsapp_message(
@@ -337,6 +439,17 @@ def process_whatsapp_message(
         event_date = cal_info.get("event_date") or today.isoformat()
         start_time = cal_info.get("start_time") or "09:00"
         duration = int(cal_info.get("duration_minutes") or 60)
+        invite_lau = bool(cal_info.get("invite_lau"))
+
+        # Determinar participantes de la invitación
+        invite_emails = ["fidelm02@gmail.com"]
+        attendees_labels = ["Fidel (fidelm02@gmail.com)"]
+
+        # Si se pidió invitar a Lau o la transcripción la menciona
+        trans_low = transcription.lower()
+        if invite_lau or "lau" in trans_low or "lalis" in trans_low or target == "lau":
+            invite_emails.append("lalisgallego@hotmail.com")
+            attendees_labels.append("Laura (lalisgallego@hotmail.com)")
 
         # Generar fechas en formato ISO para URL de Google Calendar (YYYYMMDDTHHMMSS)
         try:
@@ -344,17 +457,32 @@ def process_whatsapp_message(
             dt_end = dt_start + timedelta(minutes=duration)
             dates_param = f"{dt_start.strftime('%Y%m%dT%H%M%S')}/{dt_end.strftime('%Y%m%dT%H%M%S')}"
         except Exception:
+            dt_start = datetime.now()
+            dt_end = dt_start + timedelta(hours=1)
             dates_param = f"{event_date.replace('-', '')}/{event_date.replace('-', '')}"
 
+        # 1. Despachar invitación formal iCalendar (.ics) por correo vía SMTP
+        ics_ok, ics_err = _send_calendar_invite(
+            to_emails=invite_emails,
+            organizer_email="fidelm02@gmail.com",
+            organizer_name=sender_name,
+            title=title,
+            description=desc,
+            start_dt=dt_start,
+            end_dt=dt_end,
+        )
+
+        # 2. Generar enlace de respaldo 1-clic a Google Calendar con invitados precargados
         gcal_params = {
             "action": "TEMPLATE",
             "text": title,
             "details": f"{desc}\n\nAgendado desde el grupo Chismoso por {sender_name}.",
             "dates": dates_param,
+            "add": ",".join(invite_emails),
         }
         gcal_link = f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
 
-        # Guardar en base de datos de tareas con fecha para time-blocking en portal
+        # 3. Guardar en base de datos de tareas con fecha para time-blocking en portal
         storage.create_task(
             title=f"📅 {title} ({start_time})",
             description=f"{desc}\n\nGoogle Calendar: {gcal_link}",
@@ -364,12 +492,16 @@ def process_whatsapp_message(
         )
 
         target_display = "Fidel" if target == "fidel" else "Lau"
+        inv_notice = "✓ *Invitación formal (.ics) enviada a:* " + ", ".join(attendees_labels) if ics_ok else f"⚠️ Error enviando tarjeta .ics: {ics_err}"
+
         reply_text = (
             f"📅 *Evento agendado para {target_display}*:\n"
             f"📌 *{title}*\n"
             f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
-            f"✓ Guardado en tu Calendario de tareas.\n\n"
-            f"🔗 *Bloquear en Google Calendar (1 clic):*\n{gcal_link}"
+            f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
+            f"{inv_notice}\n"
+            f"*(Google Calendar y Hotmail detectan el correo y lo añaden al calendario)*\n\n"
+            f"🔗 *Abrir directamente en Google Calendar:*\n{gcal_link}"
         )
 
     # =========================================================================
