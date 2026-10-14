@@ -22,17 +22,17 @@ import urllib.parse
 import uuid
 
 from app import storage
-from app.constants import GEMINI_TOKEN
+from app.constants import GEMINI_TOKEN, MEMBERS_INFO
 from app.services import reader_service
-from portal.services import health_service
+from portal.services import health_service, vault_service
 
 logger = logging.getLogger(__name__)
 
-# Modelos candidatos en orden de preferencia
+# Modelos candidatos en orden de preferencia y velocidad
 GEMINI_MODELS = [
-    "gemini-3.6-flash",
-    "gemini-flash-latest",
+    "gemini-3-flash-preview",
     "gemini-3.1-flash-lite",
+    "gemini-flash-latest",
 ]
 
 # Historial reciente de mensajes procesados para auditoría y visualización en el Portal
@@ -40,95 +40,114 @@ _MAX_HISTORY_ITEMS = 50
 _whatsapp_activity_log: list[dict[str, Any]] = []
 
 
-WHATSAPP_PROMPT_TEMPLATE = """Eres el Asistente Inteligente del grupo de WhatsApp "Chismoso", integrado por Fidel y su novia Lau.
-Tu labor es escuchar/analizar el mensaje (audio o texto) con máxima atención, entender la intención de quien habla y clasificarla para ejecutar la acción correspondiente en el sistema Kindle Tasks Pro.
+WHATSAPP_PROMPT_TEMPLATE = """Eres el Asistente Inteligente del grupo de WhatsApp "Chismoso", integrado por Fidel, su novia Lau y Martha.
+Tu labor es escuchar/analizar el mensaje (audio o texto) con máxima atención, entender la intención de quien habla y clasificarla para ejecutar la acción correspondiente.
 
 CONTEXTO TEMPORAL:
 - Fecha de hoy: {today_date} ({day_name})
 
 INTEGRANTES Y CONTACTOS:
-- "fidel": Fidel Moreno (usuario principal) - Correo: fidelm02@gmail.com
+- "fidel": Fidel Moreno (usuario principal, dueño del Kindle Scribe) - Correo: fidelm02@gmail.com
 - "lau": Lau / Laura / Lalis (novia de Fidel) - Correo: lalisgallego@hotmail.com
+- "martha": Martha Elena Gallego (mamá de Lau / familiar) - Correo: marthaelena.gallego@mamh.gouv.qc.ca
 
-REGLAS DE INTERPRETACIÓN:
-1. "email" (Redactar y Enviar Correo Electrónico):
-   - Cuando se pida explícitamente enviar, mandar o redactar un correo o email (ej: "mándale un correo a Lau diciéndole...", "envía un email a Lalis con...", "manda un correo a fidel...").
-   - "recipient_name": Nombre del destinatario ("Laura" o "Fidel" u otro).
-   - "recipient_email": Correo destino. Si mencionan a Lau / Laura / Lalis usar "lalisgallego@hotmail.com"; si mencionan a Fidel usar "fidelm02@gmail.com"; o el correo explícito que indiquen.
-   - "subject": Asunto claro y conciso del correo.
-   - "body": Redacción completa del mensaje, estructurada, cordial y clara.
 
-2. "calendar_event" (Agendar Evento / Cita en Google Calendar):
-   - Cuando se mencione agendar una cita, reunión, compromiso con hora específica o bloqueo de tiempo (ej: "agenda cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00", "agenda evento e invita a Lau").
-   - "target": "fidel" o "lau".
-   - "title": Título del evento o cita.
-   - "description": Detalles o notas del evento.
+TAXONOMÍA DE ACCIONES (Elige con máxima precisión):
+
+1. "calendar_event" (Evento / Cita / Tarea por hora en Google Calendar):
+   - CUÁNDO USAR: Cuando se mencione una HORA o compromiso temporal específico (ej: "cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00", "vuelo a las 6:30", "compromiso a las 15:00").
+   - "target": "fidel", "lau", o "martha".
+   - "title": Título claro y conciso del evento.
+   - "description": Notas o detalles del evento.
    - "event_date": Fecha en formato YYYY-MM-DD.
    - "start_time": Hora de inicio en formato HH:MM (24 horas, ej. "16:00" o "10:30"). Si no indican hora específica, usar "09:00".
-   - "duration_minutes": Duración estimada en minutos (ej. 30, 60, etc., por defecto 60).
-   - "invite_lau": true si se menciona invitar a Lau / Laura / Lalis o si el evento es para ambos.
+   - "duration_minutes": Duración estimada en minutos (por defecto 60).
+   - "attendees": Lista de nombres de los involucrados a invitar (ej. ["Laura", "Fidel", "Martha"]).
 
-3. "task" (Crear Tarea):
-   - Cuando se mencione una tarea por hacer, comprar, recordar, pendiente, trámite o actividad (que no sea un evento con hora fija ni envío de correo).
-   - Identificar para quién es: "target" debe ser "fidel" o "lau" (por defecto "fidel" salvo que se mencione o refiera a Lau).
-   - "title": Título conciso y claro de la tarea.
-   - "description": Detalles, especificaciones o notas mencionadas en el audio.
-   - "priority": "high", "normal", o "low" (por defecto "normal", salvo que indiquen urgencia).
-   - "due_date": Fecha calculada en formato YYYY-MM-DD si indican "mañana", "el viernes", "el sábado", "en 3 días", etc., o null si no se especifica.
+2. "kindle_task" (Tarea EXCLUSIVA para la pantalla E-ink del Kindle Scribe de Fidel):
+   - CUÁNDO USAR: ÚNICA Y EXCLUSIVAMENTE si el usuario dice de forma explícita palabras como "tarea para el kindle", "para el kindle", "tarea de kindle", o "agrega al kindle".
+   - Si NO dicen esas palabras exactas, NO uses esta acción (usa "reminder").
+   - "target": "fidel" (por defecto) o "lau" / "martha".
+   - "title": Título conciso de la tarea.
+   - "description": Detalles o notas.
+   - "priority": "high", "normal", o "low".
+   - "due_date": Fecha YYYY-MM-DD o null.
 
-4. "kindle_doc" (Documento / Lectura para Kindle):
-   - Cuando indiquen "para el kindle", "lectura", "artículo", "guarda este resumen", "apunte de lectura", o compartan información extensa que quieran leer en su Kindle Scribe.
-   - "target": "fidel" (se guarda en docs/) o "lau" (se guarda en docs_lau/).
+3. "reminder" (Recordatorio / Compromiso para el Cron de las 6:00 AM):
+   - CUÁNDO USAR: Es la acción POR DEFECTO para cualquier tarea, encargo, trámite, compra o cosa por hacer en una fecha que NO tenga hora fija ni diga "para el kindle" (ej: "recuérdame comprar leche mañana", "el viernes hay que renovar el pasaporte", "recuérdale a Lau llamar al doctor", "tenemos que pagar la renta el 1").
+   - "target": "fidel", "lau", o "martha".
+   - "requester": Nombre de quien habla ("fidel", "lau", "martha").
+   - "reminder_date": Fecha calculada en formato YYYY-MM-DD para la cual se debe recordar (ej. si dicen "mañana", "el viernes", "en 3 días"). Si no especifican fecha, calcular para mañana.
+   - "title": Descripción clara y accionable de lo que hay que recordar.
+
+4. "vault_doc" (Documento / Guía / Nota extensa para la Base de Conocimiento en Obsidian):
+   - CUÁNDO USAR: Cuando compartan notas clínicas de pacientes (de Laura), trámites de Quebec/gobierno (de Martha), artículos, resúmenes, recetas, guías o información extensa que deba guardarse en el Vault Obsidian.
+   - "target": "fidel", "lau", o "martha".
+   - "category": Subcarpeta ("Pacientes", "Tramites", "Notas", "Documentos", "General").
    - "title": Título descriptivo del documento.
-   - "markdown_content": Contenido completo en Markdown bien formateado (con títulos ##, viñetas, negritas) listo para leer en Kindle.
+   - "markdown_content": Contenido completo en Markdown bien formateado (con títulos ##, viñetas, tablas, negritas) listo para Obsidian.
+   - "tags": Lista de 2-4 etiquetas en minúsculas (ej. ["salud", "pacientes"], ["tramites", "quebec"]).
 
-5. "health_log" (Salud & Fitness):
-   - Cuando indiquen pesaje (ej: "pesé 92.5 kg", "mi peso hoy fue 93"), o hábitos ("ya fui al gym", "terminé mi caminata de 1 hora", "tomé mis 3 litros de agua").
+5. "email" (Redactar y Enviar Correo Electrónico vía Gmail SMTP):
+   - CUÁNDO USAR: Cuando pidan explícitamente enviar, mandar o redactar un correo o email (ej: "mándale un correo a Lau...", "envía un email a Martha con...", "manda correo a Fidel...").
+   - "recipient_name": "Laura", "Fidel", "Martha" u otro.
+   - "recipient_email": Correo destino ("lalisgallego@hotmail.com", "fidelm02@gmail.com", "marthaelena.gallego@mamh.gouv.qc.ca", o el indicado).
+   - "subject": Asunto claro.
+   - "body": Redacción completa, educada y estructurada.
+
+6. "health_log" (Salud & Fitness):
+   - CUÁNDO USAR: Pesaje ("pesé 92.5 kg") o hábitos ("gym", "walk", "water").
    - "target": "fidel" o "lau".
    - "metric_type": "weight" o "habit".
-   - Si es "weight": "weight_value" (número flotante, ej. 92.5), "notes": notas opcionales.
-   - Si es "habit": "habit_id" ("gym", "walk", o "water").
+   - "weight_value": número flotante o null.
+   - "habit_id": "gym", "walk", o "water".
 
-6. "chat_response" (Respuesta / Consulta general):
-   - Cuando hagan una pregunta, consulta de datos, cálculo rápido o saludo que requiera responderles directamente en el grupo.
-   - "reply_text": Respuesta amigable, concisa y útil para el grupo.
+7. "chat_response" (Respuesta / Consulta general o Pregunta sobre la Base de Conocimiento):
+   - CUÁNDO USAR: Preguntas directas, cálculos, saludos o dudas sobre información guardada previamente.
+   - "reply_text": Respuesta clara, empática y precisa en español.
 
 DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EXACTA (sin backticks extraños):
 {{
-  "action": "email" | "calendar_event" | "task" | "kindle_doc" | "health_log" | "chat_response",
-  "target": "fidel" | "lau",
+  "action": "calendar_event" | "kindle_task" | "reminder" | "vault_doc" | "email" | "health_log" | "chat_response",
+  "target": "fidel" | "lau" | "martha",
   "transcription": "Transcripción textual de lo que se dijo en el audio o mensaje recibido",
   "summary": "Resumen en una frase de la acción comprendida",
-  "email": {{
-    "recipient_name": "Laura",
-    "recipient_email": "lalisgallego@hotmail.com",
-    "subject": "Asunto del correo",
-    "body": "Cuerpo del correo..."
-  }},
   "calendar_event": {{
     "title": "Cita con el dentista",
     "description": "Limpieza dental",
     "event_date": "YYYY-MM-DD",
     "start_time": "16:00",
     "duration_minutes": 60,
-    "invite_lau": true
+    "attendees": ["Laura", "Fidel"]
   }},
-  "task": {{
-    "title": "Título de la tarea",
+  "kindle_task": {{
+    "title": "Título de la tarea para el Kindle",
     "description": "Detalles o notas",
     "priority": "normal",
     "due_date": "YYYY-MM-DD"
   }},
-  "kindle_doc": {{
+  "reminder": {{
+    "title": "Renovar pasaporte en el consulado",
+    "reminder_date": "YYYY-MM-DD",
+    "target": "fidel",
+    "requester": "lau"
+  }},
+  "vault_doc": {{
     "title": "Título del documento",
-    "category": "General",
-    "markdown_content": "# Título\\n\\nContenido en Markdown..."
+    "category": "Pacientes",
+    "markdown_content": "# Título\\n\\nContenido...",
+    "tags": ["pacientes", "salud"]
+  }},
+  "email": {{
+    "recipient_name": "Martha",
+    "recipient_email": "marthaelena.gallego@mamh.gouv.qc.ca",
+    "subject": "Asunto",
+    "body": "Cuerpo..."
   }},
   "health_log": {{
     "metric_type": "weight",
     "weight_value": 92.5,
-    "habit_id": "gym",
-    "notes": "Pesaje matutino"
+    "habit_id": "gym"
   }},
   "chat_response": {{
     "reply_text": "Texto de respuesta para enviar al grupo"
@@ -222,7 +241,12 @@ def _send_calendar_invite(
 
     attendee_lines = []
     for em in clean_to:
-        name = "Fidel Moreno" if "fidel" in em else "Laura (Lalis)"
+        if "fidel" in em.lower():
+            name = "Fidel Moreno"
+        elif any(k in em.lower() for k in ("martha", "marta", "mamh")):
+            name = "Martha Elena Gallego"
+        else:
+            name = "Laura (Lalis)"
         attendee_lines.append(
             f"ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN={name}:mailto:{em}"
         )
@@ -390,9 +414,10 @@ def process_whatsapp_message(
 
     action = parsed_ai.get("action", "chat_response")
     target = (parsed_ai.get("target") or "fidel").lower()
-    if target not in ("fidel", "lau"):
+    if target not in ("fidel", "lau", "martha"):
         target = "fidel"
 
+    target_display = "Fidel" if target == "fidel" else ("Lau" if target == "lau" else "Martha")
     transcription = parsed_ai.get("transcription") or (text_content or "")
     summary = parsed_ai.get("summary") or "Procesado por Asistente Chismoso"
     reply_text = ""
@@ -409,7 +434,10 @@ def process_whatsapp_message(
 
         # Resolución inteligente de contactos conocidos si no viene correo exacto
         recip_name_lower = recip_name.lower()
-        if "lau" in recip_name_lower or "lalis" in recip_name_lower:
+        if any(k in recip_name_lower for k in ("martha", "marta", "elena", "86313")):
+            recip_email = "marthaelena.gallego@mamh.gouv.qc.ca"
+            recip_name = "Martha Elena Gallego"
+        elif "lau" in recip_name_lower or "lalis" in recip_name_lower:
             recip_email = "lalisgallego@hotmail.com"
             recip_name = "Laura (Lalis)"
         elif "fidel" in recip_name_lower:
@@ -430,7 +458,7 @@ def process_whatsapp_message(
             reply_text = f"⚠️ Error al enviar correo a {recip_name} ({recip_email}): {err_msg}"
 
     # =========================================================================
-    # EJECUTOR 2: AGENDAR EN GOOGLE CALENDAR & KINDLE TASKS
+    # EJECUTOR 2: AGENDAR EN GOOGLE CALENDAR (TAREAS CON HORA ESPECÍFICA)
     # =========================================================================
     elif action == "calendar_event":
         cal_info = parsed_ai.get("calendar_event") or {}
@@ -439,19 +467,27 @@ def process_whatsapp_message(
         event_date = cal_info.get("event_date") or today.isoformat()
         start_time = cal_info.get("start_time") or "09:00"
         duration = int(cal_info.get("duration_minutes") or 60)
-        invite_lau = bool(cal_info.get("invite_lau"))
 
         # Determinar participantes de la invitación
         invite_emails = ["fidelm02@gmail.com"]
         attendees_labels = ["Fidel (fidelm02@gmail.com)"]
 
-        # Si se pidió invitar a Lau o la transcripción la menciona
         trans_low = transcription.lower()
-        if invite_lau or "lau" in trans_low or "lalis" in trans_low or target == "lau":
-            invite_emails.append("lalisgallego@hotmail.com")
-            attendees_labels.append("Laura (lalisgallego@hotmail.com)")
+        attendees_text = str(cal_info.get("attendees", "")).lower()
 
-        # Generar fechas en formato ISO para URL de Google Calendar (YYYYMMDDTHHMMSS)
+        # Invitar a Lau
+        if "lau" in trans_low or "lalis" in trans_low or target == "lau" or "laura" in attendees_text or "lau" in attendees_text:
+            if "lalisgallego@hotmail.com" not in invite_emails:
+                invite_emails.append("lalisgallego@hotmail.com")
+                attendees_labels.append("Laura (lalisgallego@hotmail.com)")
+
+        # Invitar a Martha
+        if any(k in trans_low for k in ("martha", "marta", "elena")) or target == "martha" or any(k in attendees_text for k in ("martha", "marta")):
+            if "marthaelena.gallego@mamh.gouv.qc.ca" not in invite_emails:
+                invite_emails.append("marthaelena.gallego@mamh.gouv.qc.ca")
+                attendees_labels.append("Martha (marthaelena.gallego@mamh.gouv.qc.ca)")
+
+        # Generar fechas en formato ISO para URL de Google Calendar
         try:
             dt_start = datetime.strptime(f"{event_date} {start_time}", "%Y-%m-%d %H:%M")
             dt_end = dt_start + timedelta(minutes=duration)
@@ -461,7 +497,7 @@ def process_whatsapp_message(
             dt_end = dt_start + timedelta(hours=1)
             dates_param = f"{event_date.replace('-', '')}/{event_date.replace('-', '')}"
 
-        # 1. Intentar inserción DIRECTA vía Google Calendar API (si OAuth está vinculado)
+        # 1. Inserción DIRECTA vía Google Calendar API
         from portal.services import google_calendar_service
 
         api_success = False
@@ -502,24 +538,13 @@ def process_whatsapp_message(
         }
         gcal_link = api_link or f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
 
-        # 4. Guardar en base de datos de tareas con fecha para time-blocking en portal
-        storage.create_task(
-            title=f"📅 {title} ({start_time})",
-            description=f"{desc}\n\nGoogle Calendar: {gcal_link}",
-            priority="normal",
-            target_date=event_date,
-            scope=target,
-        )
-
-        target_display = "Fidel" if target == "fidel" else "Lau"
-
         if api_success:
             reply_text = (
-                f"📅 *Evento creado DIRECTAMENTE en tu Google Calendar*:\n"
+                f"📅 *Evento agendado en Google Calendar para {target_display}*:\n"
                 f"📌 *{title}*\n"
                 f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
                 f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
-                f"✓ *Insertado en tu cuenta (`fidelm02@gmail.com`) y Google despachó la invitación formal a Lau para confirmar.*\n\n"
+                f"✓ *Insertado en la cuenta (`fidelm02@gmail.com`) y Google despachó invitaciones oficiales.*\n\n"
                 f"🔗 *Ver en Google Calendar:*\n{gcal_link}"
             )
         else:
@@ -531,21 +556,20 @@ def process_whatsapp_message(
                 f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
                 f"{inv_notice}\n"
                 f"*(Google Calendar y Hotmail añaden el evento automáticamente al recibir el correo)*\n\n"
-                f"👉 *Para inserción 100% directa por API sin correos, autoriza aquí:* http://192.168.0.98:8090/google/login\n\n"
-                f"🔗 *Abrir directamente en Google Calendar:*\n{gcal_link}"
+                f"🔗 *Abrir en Google Calendar:*\n{gcal_link}"
             )
 
     # =========================================================================
-    # EJECUTOR 3: CREAR TAREA (KINDLE / PORTAL)
+    # EJECUTOR 3: TAREA EXCLUSIVA PARA EL KINDLE SCRIBE
     # =========================================================================
-    elif action == "task":
-        task_info = parsed_ai.get("task") or {}
+    elif action in ("kindle_task", "task") and any(k in transcription.lower() for k in ("kindle", "scribe")):
+        task_info = parsed_ai.get("kindle_task") or parsed_ai.get("task") or {}
         title = task_info.get("title") or transcription[:60]
         desc = task_info.get("description") or f"Creada desde WhatsApp por {sender_name}"
         priority = task_info.get("priority") or "normal"
         due_date = task_info.get("due_date")
 
-        created = storage.create_task(
+        storage.create_task(
             title=title,
             description=desc,
             priority=priority,
@@ -553,42 +577,77 @@ def process_whatsapp_message(
             scope=target,
         )
 
-        target_display = "Fidel" if target == "fidel" else "Lau"
         due_badge = f" (📅 Para: {due_date})" if due_date else ""
         prio_badge = " 🔥 Alta" if priority == "high" else ""
-        reply_text = f"✓ Tarea agregada a *{target_display}*{prio_badge}: \"{title}\"{due_badge}"
+        reply_text = f"✓ Tarea agregada al *Kindle Scribe* para *{target_display}*{prio_badge}: \"{title}\"{due_badge}"
 
     # =========================================================================
-    # EJECUTOR 2: GENERAR DOCUMENTO MARKDOWN PARA KINDLE
+    # EJECUTOR 4: RECORDATORIO / COMPROMISO (CRON DE LAS 6:00 AM)
     # =========================================================================
-    elif action == "kindle_doc":
-        doc_info = parsed_ai.get("kindle_doc") or {}
+    elif action in ("reminder", "task"):
+        rem_info = parsed_ai.get("reminder") or parsed_ai.get("task") or {}
+        title = rem_info.get("title") or transcription[:80]
+        due_date = rem_info.get("reminder_date") or rem_info.get("due_date")
+        if not due_date:
+            due_date = (today + timedelta(days=1)).isoformat()
+
+        vault_service.add_reminder(
+            requester=sender_name,
+            target=target,
+            reminder_date=due_date,
+            text=title,
+        )
+
+        reply_text = (
+            f"⏰ *Recordatorio programado para {target_display}*:\n"
+            f"📌 \"{title}\"\n"
+            f"📅 *Fecha:* {due_date}\n\n"
+            f"*(Te avisaré en este grupo el día anterior y a las 6:00 AM el mero día)*"
+        )
+
+    # =========================================================================
+    # EJECUTOR 5: GENERAR DOCUMENTO / BASE DE CONOCIMIENTO (OBSIDIAN VAULT)
+    # =========================================================================
+    elif action in ("vault_doc", "kindle_doc"):
+        doc_info = parsed_ai.get("vault_doc") or parsed_ai.get("kindle_doc") or {}
         doc_title = doc_info.get("title") or "Apunte de WhatsApp"
-        category = doc_info.get("category") or "General"
+        category = doc_info.get("category") or "Documentos"
         md_body = doc_info.get("markdown_content") or f"# {doc_title}\n\n{transcription}"
+        tags = doc_info.get("tags") or [category.lower(), "chismoso"]
 
-        # Guardar en directorio docs correspondiente
-        docs_target_dir = reader_service._ensure_docs_dir(target)
-        cat_dir = docs_target_dir / category
-        cat_dir.mkdir(parents=True, exist_ok=True)
+        saved_path = vault_service.save_vault_document(
+            author=target,
+            category=category,
+            title=doc_title,
+            markdown_content=md_body,
+            tags=tags,
+        )
 
-        slug = re.sub(r"[^a-zA-Z0-9_-]", "_", doc_title.lower()).strip("_")[:40] or "nota"
-        filename = f"{today.isoformat()}_{slug}.md"
-        file_path = cat_dir / filename
+        # Si el documento es de Fidel, también se copia a docs/ para lectura en Kindle
+        if target == "fidel":
+            try:
+                k_dir = reader_service._ensure_docs_dir("fidel") / category
+                k_dir.mkdir(parents=True, exist_ok=True)
+                with open(k_dir / saved_path.name, "w", encoding="utf-8") as kf:
+                    kf.write(md_body)
+            except Exception:
+                pass
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(md_body)
-
-        target_display = "Fidel" if target == "fidel" else "Lau"
-        reply_text = f"📖 Documento Kindle guardado para *{target_display}*:\n📄 *{doc_title}*\nCarpeta: `{category}/{filename}` (Listo para leer en Kindle)"
+        tags_str = ", ".join(f"#{t}" for t in tags)
+        reply_text = (
+            f"📖 *Documento guardado en la Base de Conocimiento (Vault Obsidian)*:\n"
+            f"👤 *Autor:* {target_display}\n"
+            f"📁 *Carpeta:* `{target_display}/{category}/`\n"
+            f"📄 *{doc_title}*\n"
+            f"🏷️ *Tags:* {tags_str} (Enlazado en `_Indice.md`)"
+        )
 
     # =========================================================================
-    # EJECUTOR 3: REGISTRO DE SALUD / PESO / HÁBITOS
+    # EJECUTOR 6: REGISTRO DE SALUD / PESO / HÁBITOS
     # =========================================================================
     elif action == "health_log":
         health_info = parsed_ai.get("health_log") or {}
         metric = health_info.get("metric_type", "weight")
-        target_display = "Fidel" if target == "fidel" else "Lau"
 
         if metric == "weight" and health_info.get("weight_value"):
             w_val = float(health_info["weight_value"])
@@ -605,11 +664,19 @@ def process_whatsapp_message(
             reply_text = f"✓ Dato de salud recibido y guardado para *{target_display}*."
 
     # =========================================================================
-    # EJECUTOR 4: RESPUESTA DE CHAT DIRECTA
+    # EJECUTOR 7: RESPUESTA DE CHAT DIRECTA O CONSULTA DE CONOCIMIENTO
     # =========================================================================
     else:
         chat_info = parsed_ai.get("chat_response") or {}
-        reply_text = chat_info.get("reply_text") or f"Asistente Chismoso: {summary}"
+        ai_reply = chat_info.get("reply_text") or summary
+
+        # Si el usuario pregunta por información previa, consultamos el Vault Obsidian
+        search_hits = vault_service.search_vault(transcription, author=target, max_results=2)
+        if search_hits and any(q in transcription.lower() for q in ("qué", "que", "cuál", "cual", "dónde", "donde", "recuerdas", "teníamos", "tenemos", "paciente", "correo", "trámite", "tramite")):
+            citations = "\n".join([f"• [[{h['rel_path']}|{h['title']}]]: {h['snippet'][:110]}..." for h in search_hits])
+            reply_text = f"{ai_reply}\n\n📚 *Encontrado en tu Vault Obsidian:*\n{citations}"
+        else:
+            reply_text = ai_reply
 
     # Guardar en registro de actividad en memoria
     activity_entry = {

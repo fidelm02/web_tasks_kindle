@@ -30,6 +30,7 @@ data/*.json
 docs/
 docs_lau/
 docs_*/
+vault/
 
 # ==========================================
 # Variables de entorno y secretos

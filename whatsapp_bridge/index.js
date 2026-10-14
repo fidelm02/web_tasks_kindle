@@ -25,6 +25,7 @@ import axios from 'axios';
 import { Boom } from '@hapi/boom';
 import path from 'path';
 import fs from 'fs';
+import http from 'node:http';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,6 +47,12 @@ const logger = pino({ level: 'warn' });
 const groupMetaCache = new Map();
 // Cache de IDs de mensajes enviados por el bot para evitar bucles
 const botSentMsgIds = new Set();
+
+// Socket activo y JID objetivo para mensajes proactivos (ej. Cron de recordatorios)
+let activeSock = null;
+let targetGroupJid = process.env.TARGET_GROUP_JID || '120363428629349624@g.us';
+const PUSH_SERVER_PORT = process.env.PUSH_SERVER_PORT || 8095;
+let pushServerStarted = false;
 
 async function notifyPortalStatus(connected, qrCode = null, phone = null) {
   try {
@@ -108,6 +115,7 @@ async function connectToWhatsApp() {
         : null;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       
+      activeSock = null;
       console.log(`[WhatsApp Bridge] Conexión cerrada (Código: ${statusCode}). Reconectar: ${shouldReconnect}`);
       await notifyPortalStatus(false, null, null);
 
@@ -119,10 +127,25 @@ async function connectToWhatsApp() {
         setTimeout(connectToWhatsApp, 3000);
       }
     } else if (connection === 'open') {
+      activeSock = sock;
       const userJid = sock.user?.id || 'Desconocido';
       console.log(`\n✓ [WhatsApp Bridge] ¡Conectado exitosamente como: ${userJid}!`);
       console.log(`✓ Escuchando mensajes en el grupo "${TARGET_GROUP_NAME}"...\n`);
       await notifyPortalStatus(true, null, userJid.split(':')[0]);
+
+      // Intentar auto-descubrir el JID del grupo Chismoso
+      try {
+        const groups = await sock.groupFetchAllParticipating();
+        for (const [gJid, meta] of Object.entries(groups)) {
+          if (meta?.subject) groupMetaCache.set(gJid, meta.subject);
+          if ((meta?.subject || '').toLowerCase().includes(TARGET_GROUP_NAME)) {
+            targetGroupJid = gJid;
+            console.log(`✓ [WhatsApp Bridge] Grupo Chismoso detectado automáticamente: ${gJid}`);
+          }
+        }
+      } catch (gErr) {
+        // Ignorar si la carga inicial de grupos falla
+      }
     }
   });
 
@@ -162,6 +185,7 @@ async function connectToWhatsApp() {
         if (!groupName.toLowerCase().includes(TARGET_GROUP_NAME)) {
           continue;
         }
+        targetGroupJid = remoteJid;
       } else {
         // Ignorar chats individuales para respetar privacidad y consumir solo Chismoso
         continue;
@@ -295,7 +319,75 @@ async function connectToWhatsApp() {
   return sock;
 }
 
-// Iniciar conexión
+/**
+ * Microservidor HTTP local para recibir órdenes de despacho proactivas
+ * (por ejemplo, el Cron de las 6:00 AM para recordatorios de Fidel, Lau y Martha).
+ */
+function startPushServer() {
+  if (pushServerStarted) return;
+  pushServerStarted = true;
+
+  const server = http.createServer(async (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'GET' && req.url === '/api/status') {
+      res.writeHead(200);
+      return res.end(JSON.stringify({
+        status: 'ok',
+        connected: Boolean(activeSock && activeSock.user),
+        targetGroupJid,
+        user: activeSock?.user?.id || null,
+      }));
+    }
+
+    if (req.method === 'POST' && req.url === '/api/send') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const data = JSON.parse(body || '{}');
+          const text = data.text;
+          const destJid = data.jid || targetGroupJid;
+
+          if (!text) {
+            res.writeHead(400);
+            return res.end(JSON.stringify({ error: 'El campo text es requerido' }));
+          }
+          if (!activeSock) {
+            res.writeHead(503);
+            return res.end(JSON.stringify({ error: 'WhatsApp Bridge no está conectado aún' }));
+          }
+
+          console.log(`[WhatsApp Push] Despachando mensaje proactivo a ${destJid}...`);
+          const sent = await activeSock.sendMessage(destJid, { text });
+          if (sent?.key?.id) {
+            botSentMsgIds.add(sent.key.id);
+          }
+          res.writeHead(200);
+          return res.end(JSON.stringify({ status: 'ok', id: sent?.key?.id }));
+        } catch (err) {
+          console.error('[WhatsApp Push Error]:', err.message);
+          res.writeHead(500);
+          return res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+
+    res.writeHead(404);
+    res.end(JSON.stringify({ error: 'Ruta no encontrada' }));
+  });
+
+  server.listen(PUSH_SERVER_PORT, '127.0.0.1', () => {
+    console.log(`✓ [WhatsApp Bridge Push Server] Escuchando en http://127.0.0.1:${PUSH_SERVER_PORT}`);
+  });
+}
+
+// Iniciar servidor push local para el cron
+startPushServer();
+
+// Iniciar conexión Baileys
 connectToWhatsApp().catch(err => {
   console.error('[WhatsApp Bridge Fatal Error]:', err);
 });
+

@@ -65,32 +65,41 @@
     </button>
   </div>
 
-  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1rem; font-size:0.82rem; line-height:1.5;">
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:0.85rem; font-size:0.82rem; line-height:1.5;">
     <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
       <strong style="color:#60a5fa; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
-        <span>📌</span> 1. Crear Tareas
+        <span>📅</span> 1. Google Calendar (Con Hora)
       </strong>
-      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Menciona la persona y la acción:</p>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Tarea Fidel: Comprar focos mañana"</code>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Tarea Lau: Agendar cita médica"</code>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Citas o tareas con hora fija:</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem;">"Reunión mañana a las 4pm con Lau"</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem; margin-top:0.25rem;">"Cita dentista el viernes a las 10:30"</code>
+    </div>
+
+    <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
+      <strong style="color:#f59e0b; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
+        <span>⏰</span> 2. Recordatorios (Cron 6 AM)
+      </strong>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Avisos por WhatsApp (día antes y hoy):</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem;">"Recuérdame comprar leche mañana"</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem; margin-top:0.25rem;">"Recuérdale a Martha renovar trámite"</code>
     </div>
 
     <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
       <strong style="color:#a78bfa; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
-        <span>📖</span> 2. Documentos Kindle (.md)
+        <span>📚</span> 3. Vault Obsidian (.md)
       </strong>
-      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Crea artículos listos para leer en Kindle:</p>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Para el Kindle: Resumen del libro..."</code>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Lectura para Lau: Consejos de viaje"</code>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Notas, pacientes, trámites o resúmenes:</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem;">"Guarda apunte de Madame Parmar..."</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem; margin-top:0.25rem;">"Trámite Quebec: Requisitos de salud"</code>
     </div>
 
     <div style="background:rgba(255,255,255,0.02); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-subtle);">
       <strong style="color:#34d399; display:flex; align-items:center; gap:0.35rem; margin-bottom:0.35rem;">
-        <span>💪</span> 3. Salud & Fitness
+        <span>📟</span> 4. Kindle Scribe (Exclusivo)
       </strong>
-      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Registra peso o asistencia diaria:</p>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem;">"Peso Fidel: 92.6 kilos hoy"</code>
-      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.78rem; margin-top:0.25rem;">"Completé el gym y caminata"</code>
+      <p style="color:var(--text-secondary); margin-bottom:0.4rem;">Solo si dices explícitamente "para el kindle":</p>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem;">"Para el Kindle: Cambiar focos mañana"</code>
+      <code style="display:block; background:rgba(0,0,0,0.3); padding:0.4rem; border-radius:4px; color:#e2e8f0; font-size:0.75rem; margin-top:0.25rem;">"Tarea de Kindle: Revisar código Dev"</code>
     </div>
   </div>
 </section>
@@ -114,6 +123,7 @@
         <select id="sim-sender" class="form-control">
           <option value="Fidel" selected>Fidel</option>
           <option value="Lau">Lau</option>
+          <option value="Martha">Martha</option>
         </select>
       </div>
 

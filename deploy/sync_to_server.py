@@ -37,6 +37,23 @@ def execute_ssh_command(client: paramiko.SSHClient, cmd: str) -> tuple[int, str,
     return exit_code, out, err
 
 
+def sftp_sync_dir(sftp: paramiko.SFTPClient, local_dir: Path, remote_dir: str) -> None:
+    """Recursively upload directory contents via SFTP."""
+    try:
+        sftp.mkdir(remote_dir)
+    except Exception:
+        pass
+
+    for item in local_dir.iterdir():
+        if item.name.startswith(".tmp_") or item.name == "__pycache__":
+            continue
+        remote_path = f"{remote_dir}/{item.name}"
+        if item.is_dir():
+            sftp_sync_dir(sftp, item, remote_path)
+        else:
+            sftp.put(str(item), remote_path)
+
+
 def main() -> None:
     print("[1/4] Conectando por SSH al servidor...")
     client = paramiko.SSHClient()
@@ -66,8 +83,8 @@ def main() -> None:
         if err:
             print(f"       [Aviso]: {err}")
 
-        # Paso 2: Git pull y sincronización de constants.py
-        print("[3/4] Ejecutando git pull y sincronizando archivos...")
+        # Paso 2: Git pull y sincronización de constants.py y vault
+        print("[3/4] Ejecutando git pull y sincronizando archivos y Vault...")
         code, out, err = execute_ssh_command(
             client, f"cd {repo_path} && git pull origin main"
         )
@@ -76,7 +93,7 @@ def main() -> None:
         if err:
             print(f"       Git info/err: {err}")
 
-        # Sincronizar app/constants.py y data/health_data.json hacia el servidor remoto vía SFTP
+        # Sincronizar app/constants.py, data/health_data.json y vault/ hacia el servidor remoto vía SFTP
         sftp = client.open_sftp()
         local_constants = REPO_ROOT / "app" / "constants.py"
         if local_constants.exists():
@@ -89,12 +106,28 @@ def main() -> None:
             remote_health = f"{repo_path}/data/health_data.json"
             sftp.put(str(local_health), remote_health)
             print("       Sincronizado data/health_data.json vía SFTP exitosamente.")
+
+        local_vault = REPO_ROOT / "vault"
+        if local_vault.exists():
+            remote_vault = f"{repo_path}/vault"
+            sftp_sync_dir(sftp, local_vault, remote_vault)
+            print("       Sincronizado Vault Obsidian vía SFTP exitosamente.")
+
         sftp.close()
 
+        # Configurar permisos de ejecución para cron_reminders.py y configurar Crontab a las 6:00 AM
+        execute_ssh_command(client, f"chmod +x {repo_path}/cron_reminders.py")
+        cron_job = f"0 6 * * * cd {repo_path} && .venv/bin/python cron_reminders.py >> reminders.log 2>&1"
+        execute_ssh_command(
+            client,
+            f'(crontab -l 2>/dev/null | grep -v "cron_reminders.py"; echo "{cron_job}") | crontab -',
+        )
+        print("       Configurado Crontab automático en el servidor (diario a las 6:00 AM).")
+
         # Paso 3: Volver a iniciar los servicios
-        print("[4/4] Iniciando los servicios en el servidor (Kindle 8080 y Portal 8090)...")
+        print("[4/4] Iniciando los servicios en el servidor (Kindle 8080, Portal 8090, WhatsApp Bridge)...")
         code, out, err = execute_ssh_command(
-            client, f"cd {repo_path} && python3 kindle_web.py start && python3 portal_web.py start"
+            client, f"cd {repo_path} && python3 kindle_web.py start && python3 portal_web.py start && (python3 whatsapp_web.py restart || python3 whatsapp_web.py start)"
         )
         if out:
             print(f"       {out}")

@@ -124,3 +124,20 @@ async def simulate_whatsapp_message(
         text_content=message_text,
     )
     return JSONResponse(result)
+
+
+@router.post("/api/reminders/check")
+async def trigger_reminders_check():
+    """Ejecuta manualmente el chequeo del cron de recordatorios."""
+    import cron_reminders
+    count = cron_reminders.run_reminders_check()
+    return {"status": "ok", "notifications_sent": count}
+
+
+@router.get("/api/vault/reminders")
+async def list_vault_reminders():
+    """Consulta la lista de recordatorios activos del Vault."""
+    from portal.services import vault_service
+    reminders = vault_service.get_all_reminders()
+    return JSONResponse({"status": "ok", "reminders": reminders})
+
