@@ -24,7 +24,7 @@ import uuid
 from app import storage
 from app.constants import GEMINI_TOKEN, MEMBERS_INFO
 from app.services import reader_service
-from portal.services import health_service, vault_service
+from portal.services import health_service, pdf_service, vault_service
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,10 @@ TAXONOMÍA DE ACCIONES (Elige con máxima precisión):
 1. "calendar_event" (Evento / Cita / Tarea por hora en Google Calendar):
    - CUÁNDO USAR: Cuando se mencione una HORA o compromiso temporal específico (ej: "cita con el dentista el viernes a las 4pm", "reunión mañana a las 10:00", "vuelo a las 6:30", "compromiso a las 15:00").
    - "target": "fidel", "lau", o "martha".
+   - "requester": Quién solicitó el evento ("fidel", "lau", o "martha").
+     * Si Laura lo pidió -> se guardará en su calendario "LauraG"
+     * Si Martha lo pidió -> se guardará en su calendario "MarthaG"
+     * Si Fidel lo pidió -> se guardará en el calendario normal default ("primary")
    - "title": Título claro y conciso del evento.
    - "description": Notas o detalles del evento.
    - "event_date": Fecha en formato YYYY-MM-DD.
@@ -80,13 +84,18 @@ TAXONOMÍA DE ACCIONES (Elige con máxima precisión):
    - "reminder_date": Fecha calculada en formato YYYY-MM-DD para la cual se debe recordar (ej. si dicen "mañana", "el viernes", "en 3 días"). Si no especifican fecha, calcular para mañana.
    - "title": Descripción clara y accionable de lo que hay que recordar.
 
-4. "vault_doc" (Documento / Guía / Nota extensa para la Base de Conocimiento en Obsidian):
-   - CUÁNDO USAR: Cuando compartan notas clínicas de pacientes (de Laura), trámites de Quebec/gobierno (de Martha), artículos, resúmenes, recetas, guías o información extensa que deba guardarse en el Vault Obsidian.
+4. "vault_doc" (Documento / Guía / Resumen / Reporte / Nota para la Base de Conocimiento en Obsidian y WhatsApp):
+   - CUÁNDO USAR: Cuando pidan crear, redactar o guardar un documento, reporte, guía, resumen, trámite, notas clínicas de pacientes (de Laura), trámites de Quebec/gobierno (de Martha), artículos o información extensa.
+   - Si dicen expresamente "en txt", "archivo de texto", "en texto plano" -> "format": "txt"
+   - Si dicen expresamente "para el kindle", "lectura kindle", "para leer en el kindle" -> "for_kindle": true
+   - Por defecto para cualquier otro documento -> "format": "pdf", "for_kindle": false (se compilará a PDF y se enviará como adjunto al chat de WhatsApp).
    - "target": "fidel", "lau", o "martha".
-   - "category": Subcarpeta ("Pacientes", "Tramites", "Notas", "Documentos", "General").
-   - "title": Título descriptivo del documento.
-   - "markdown_content": Contenido completo en Markdown bien formateado (con títulos ##, viñetas, tablas, negritas) listo para Obsidian.
+   - "category": Subcarpeta ("Pacientes", "Tramites", "Notas", "Documentos", "Lecturas_Kindle", "General").
+   - "title": Título claro y profesional del documento.
+   - "markdown_content": Contenido completo y detallado en Markdown bien formateado (con títulos ##, viñetas, tablas estructuradas si aplica, negritas) listo para Obsidian y para ser compilado en PDF/TXT.
    - "tags": Lista de 2-4 etiquetas en minúsculas (ej. ["salud", "pacientes"], ["tramites", "quebec"]).
+   - "format": "pdf" | "txt"
+   - "for_kindle": boolean (true ÚNICAMENTE si dijeron expresamente "para el kindle" o "lectura de kindle")
 
 5. "email" (Redactar y Enviar Correo Electrónico vía Gmail SMTP):
    - CUÁNDO USAR: Cuando pidan explícitamente enviar, mandar o redactar un correo o email (ej: "mándale un correo a Lau...", "envía un email a Martha con...", "manda correo a Fidel...").
@@ -118,7 +127,8 @@ DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EX
     "event_date": "YYYY-MM-DD",
     "start_time": "16:00",
     "duration_minutes": 60,
-    "attendees": ["Laura", "Fidel"]
+    "attendees": ["Laura", "Fidel"],
+    "requester": "lau"
   }},
   "kindle_task": {{
     "title": "Título de la tarea para el Kindle",
@@ -134,9 +144,11 @@ DEBES RESPONDER EXCLUSIVAMENTE CON UN OBJETO JSON VÁLIDO CON ESTA ESTRUCTURA EX
   }},
   "vault_doc": {{
     "title": "Título del documento",
-    "category": "Pacientes",
+    "category": "Documentos",
     "markdown_content": "# Título\\n\\nContenido...",
-    "tags": ["pacientes", "salud"]
+    "tags": ["pacientes", "salud"],
+    "format": "pdf",
+    "for_kindle": false
   }},
   "email": {{
     "recipient_name": "Martha",
@@ -421,6 +433,7 @@ def process_whatsapp_message(
     transcription = parsed_ai.get("transcription") or (text_content or "")
     summary = parsed_ai.get("summary") or "Procesado por Asistente Chismoso"
     reply_text = ""
+    attachment_data: dict[str, Any] | None = None
 
     # =========================================================================
     # EJECUTOR 1: ENVIAR CORREO ELECTRÓNICO (GMAIL SMTP)
@@ -500,6 +513,35 @@ def process_whatsapp_message(
         # 1. Inserción DIRECTA vía Google Calendar API
         from portal.services import google_calendar_service
 
+        # Determinar a qué calendario dirigir el evento:
+        # Laura -> Calendario "LauraG"
+        # Martha -> Calendario "MarthaG"
+        # Fidel -> Calendario default ("primary")
+        req_from_ai = str(cal_info.get("requester") or "").lower()
+        sender_lower = (sender_name or "").lower()
+
+        if (
+            any(k in sender_lower for k in ("martha", "marta", "elena", "15149986313"))
+            or req_from_ai == "martha"
+            or "marthag" in trans_low
+            or "calendario de martha" in trans_low
+        ):
+            requester_person = "martha"
+            cal_owner_label = "Martha (MarthaG)"
+        elif (
+            any(k in sender_lower for k in ("lau", "laura", "lalis", "14389955725"))
+            or req_from_ai in ("lau", "laura")
+            or "laurag" in trans_low
+            or "calendario de laura" in trans_low
+        ):
+            requester_person = "lau"
+            cal_owner_label = "Laura (LauraG)"
+        else:
+            requester_person = "fidel"
+            cal_owner_label = "Fidel (Principal)"
+
+        calendar_id, cal_name = google_calendar_service.resolve_calendar_for_requester(requester_person)
+
         api_success = False
         api_link = None
         if google_calendar_service.is_connected():
@@ -509,10 +551,11 @@ def process_whatsapp_message(
                 start_dt=dt_start,
                 end_dt=dt_end,
                 attendee_emails=invite_emails,
+                calendar_id=calendar_id,
             )
             api_success = api_ok
             if not api_ok:
-                logger.warning("Fallo al insertar en Google Calendar API: %s", api_msg)
+                logger.warning("Fallo al insertar en Google Calendar API (%s): %s", calendar_id, api_msg)
 
         # 2. Si no está vinculado por API o falló, enviar invitación formal iCalendar (.ics) por SMTP
         ics_ok = False
@@ -536,22 +579,26 @@ def process_whatsapp_message(
             "dates": dates_param,
             "add": ",".join(invite_emails),
         }
+        if calendar_id and calendar_id != "primary":
+            gcal_params["src"] = calendar_id
         gcal_link = api_link or f"https://calendar.google.com/calendar/render?{urllib.parse.urlencode(gcal_params)}"
 
         if api_success:
             reply_text = (
-                f"📅 *Evento agendado en Google Calendar para {target_display}*:\n"
+                f"📅 *Evento agendado en Google Calendar ({cal_name})*:\n"
                 f"📌 *{title}*\n"
+                f"📆 *Calendario:* `{cal_name}` ({cal_owner_label})\n"
                 f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
                 f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
-                f"✓ *Insertado en la cuenta (`fidelm02@gmail.com`) y Google despachó invitaciones oficiales.*\n\n"
+                f"✓ *Insertado en `{cal_name}` y Google despachó invitaciones oficiales.*\n\n"
                 f"🔗 *Ver en Google Calendar:*\n{gcal_link}"
             )
         else:
             inv_notice = "✓ *Invitación formal (.ics) enviada a:* " + ", ".join(attendees_labels) if ics_ok else f"⚠️ Error enviando tarjeta .ics: {ics_err}"
             reply_text = (
-                f"📅 *Evento agendado para {target_display}*:\n"
+                f"📅 *Evento agendado para {cal_name}*:\n"
                 f"📌 *{title}*\n"
+                f"📆 *Calendario:* `{cal_name}` ({cal_owner_label})\n"
                 f"🕒 *Fecha/Hora:* {event_date} a las {start_time} ({duration} min)\n"
                 f"👥 *Invitados:* {', '.join(attendees_labels)}\n\n"
                 f"{inv_notice}\n"
@@ -610,37 +657,114 @@ def process_whatsapp_message(
     # =========================================================================
     elif action in ("vault_doc", "kindle_doc"):
         doc_info = parsed_ai.get("vault_doc") or parsed_ai.get("kindle_doc") or {}
-        doc_title = doc_info.get("title") or "Apunte de WhatsApp"
+        doc_title = doc_info.get("title") or "Documento de WhatsApp"
         category = doc_info.get("category") or "Documentos"
         md_body = doc_info.get("markdown_content") or f"# {doc_title}\n\n{transcription}"
         tags = doc_info.get("tags") or [category.lower(), "chismoso"]
+        doc_format = str(doc_info.get("format") or "").lower()
 
+        # Validación explícita de lectura para Kindle
+        is_explicit_kindle = bool(doc_info.get("for_kindle")) or any(
+            k in transcription.lower()
+            for k in (
+                "para el kindle",
+                "lectura kindle",
+                "lectura para kindle",
+                "en el kindle",
+                "para leer en el kindle",
+                "para mi kindle",
+                "para tu kindle",
+            )
+        )
+
+        vault_category = "Lecturas_Kindle" if (is_explicit_kindle and category == "Documentos") else category
         saved_path = vault_service.save_vault_document(
             author=target,
-            category=category,
+            category=vault_category,
             title=doc_title,
             markdown_content=md_body,
             tags=tags,
         )
 
-        # Si el documento es de Fidel, también se copia a docs/ para lectura en Kindle
-        if target == "fidel":
-            try:
-                k_dir = reader_service._ensure_docs_dir("fidel") / category
-                k_dir.mkdir(parents=True, exist_ok=True)
-                with open(k_dir / saved_path.name, "w", encoding="utf-8") as kf:
-                    kf.write(md_body)
-            except Exception:
-                pass
+        # Caso A: Si es lectura explícita para Kindle Scribe
+        if is_explicit_kindle:
+            if target == "fidel":
+                try:
+                    k_dir = reader_service._ensure_docs_dir("fidel") / vault_category
+                    k_dir.mkdir(parents=True, exist_ok=True)
+                    with open(k_dir / saved_path.name, "w", encoding="utf-8") as kf:
+                        kf.write(md_body)
+                except Exception as k_err:
+                    logger.warning("No se pudo copiar a docs/ del Kindle: %s", k_err)
 
-        tags_str = ", ".join(f"#{t}" for t in tags)
-        reply_text = (
-            f"📖 *Documento guardado en la Base de Conocimiento (Vault Obsidian)*:\n"
-            f"👤 *Autor:* {target_display}\n"
-            f"📁 *Carpeta:* `{target_display}/{category}/`\n"
-            f"📄 *{doc_title}*\n"
-            f"🏷️ *Tags:* {tags_str} (Enlazado en `_Indice.md`)"
-        )
+            tags_str = ", ".join(f"#{t}" for t in tags)
+            reply_text = (
+                f"📖 *Lectura guardada para Kindle Scribe y en el Vault Obsidian*:\n"
+                f"👤 *Lector:* {target_display}\n"
+                f"📁 *Carpeta:* `{target_display}/{vault_category}/`\n"
+                f"📄 *{doc_title}*\n"
+                f"🏷️ *Tags:* {tags_str}\n\n"
+                f"*(Disponible para leer en formato Markdown en tu lector Kindle Scribe)*"
+            )
+        else:
+            # Caso B: Documento general -> Compilar en PDF (o TXT si se solicitó) y adjuntar en el chat
+            is_txt = "txt" in doc_format or any(
+                k in transcription.lower()
+                for k in ("en txt", "formato txt", "texto plano", "archivo txt", "archivo de texto")
+            )
+
+            try:
+                if is_txt:
+                    desired_ext = "txt"
+                    mimetype = "text/plain"
+                    export_file = saved_path.with_suffix(".txt")
+                    pdf_service.generate_txt(
+                        title=doc_title,
+                        content=md_body,
+                        output_path=export_file,
+                        author=target_display,
+                        category=vault_category,
+                        tags=tags,
+                    )
+                else:
+                    desired_ext = "pdf"
+                    mimetype = "application/pdf"
+                    export_file = saved_path.with_suffix(".pdf")
+                    pdf_service.generate_pdf(
+                        title=doc_title,
+                        markdown_content=md_body,
+                        output_path=export_file,
+                        author=target_display,
+                        category=vault_category,
+                        tags=tags,
+                    )
+
+                attachment_data = {
+                    "file_path": str(export_file.resolve()),
+                    "file_name": export_file.name,
+                    "mimetype": mimetype,
+                    "caption": f"📄 {doc_title} ({desired_ext.upper()})",
+                }
+
+                tags_str = ", ".join(f"#{t}" for t in tags)
+                reply_text = (
+                    f"📄 *Documento {desired_ext.upper()} generado para {target_display}*:\n"
+                    f"📌 *{doc_title}*\n"
+                    f"📁 *Guardado en Vault Obsidian:* `{target_display}/{vault_category}/`\n"
+                    f"🏷️ *Tags:* {tags_str}\n\n"
+                    f"📎 *Adjuntando archivo {desired_ext.upper()} en este chat...*"
+                )
+            except Exception as gen_err:
+                logger.error("Error al generar archivo %s: %s", "TXT" if is_txt else "PDF", gen_err)
+                tags_str = ", ".join(f"#{t}" for t in tags)
+                reply_text = (
+                    f"📖 *Documento guardado en la Base de Conocimiento (Vault Obsidian)*:\n"
+                    f"👤 *Autor:* {target_display}\n"
+                    f"📁 *Carpeta:* `{target_display}/{vault_category}/`\n"
+                    f"📄 *{doc_title}*\n"
+                    f"🏷️ *Tags:* {tags_str}\n\n"
+                    f"⚠️ (No se pudo compilar el archivo adjunto: {gen_err})"
+                )
 
     # =========================================================================
     # EJECUTOR 6: REGISTRO DE SALUD / PESO / HÁBITOS
@@ -689,12 +813,13 @@ def process_whatsapp_message(
         "target": target,
         "summary": summary,
         "reply": reply_text,
+        "attachment": attachment_data,
     }
     _whatsapp_activity_log.insert(0, activity_entry)
     if len(_whatsapp_activity_log) > _MAX_HISTORY_ITEMS:
         _whatsapp_activity_log.pop()
 
-    return {
+    resp_payload = {
         "status": "success",
         "action": action,
         "target": target,
@@ -702,6 +827,9 @@ def process_whatsapp_message(
         "summary": summary,
         "reply": reply_text,
     }
+    if attachment_data:
+        resp_payload["attachment"] = attachment_data
+    return resp_payload
 
 
 def get_recent_activity() -> list[dict[str, Any]]:

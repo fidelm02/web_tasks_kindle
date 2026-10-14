@@ -196,7 +196,16 @@
                   {{ item.action|upper }} ({{ item.target|capitalize }})
                 </span>
               </td>
-              <td style="font-size:0.78rem; color:#bbf7d0;">{{ item.reply }}</td>
+              <td style="font-size:0.78rem; color:#bbf7d0;">
+                {{ item.reply }}
+                {% if item.attachment %}
+                <div style="margin-top:0.35rem;">
+                  <span style="display:inline-block; font-size:0.7rem; background:rgba(239,68,68,0.2); color:#fca5a5; padding:0.15rem 0.45rem; border-radius:4px; font-weight:600;">
+                    📎 Adjunto: {{ item.attachment.file_name }} ({{ item.attachment.mimetype }})
+                  </span>
+                </div>
+                {% endif %}
+              </td>
             </tr>
             {% endfor %}
           {% else %}
@@ -215,7 +224,7 @@
 
 <script>
 function copyGroupDescription() {
-  const desc = `🎙️ ASISTENTE CHISMOSO (Kindle & Tasks Hub) ⚡\\nEnvía un audio o texto con una de estas intenciones:\\n\\n📌 1. TAREAS\\n• "Tarea Fidel: Comprar focos mañana"\\n• "Tarea Lau: Agendar cita del dentista"\\n\\n📚 2. DOCUMENTOS KINDLE (.md)\\n• "Para el Kindle: [Resumen o texto]"\\n• "Lectura para Lau: [Notas]"\\n\\n💪 3. SALUD & HÁBITOS\\n• "Peso: 92.5 kilos hoy"\\n• "Ya fui al gym / Caminé 1 hora"\\n\\n💡 Tip: Di primero el TIPO ("Tarea para...", "Para el Kindle...", "Salud:") y luego los detalles.`;
+  const desc = `🎙️ ASISTENTE CHISMOSO (Vault Obsidian & Kindle Hub) ⚡\\nEnvía un audio o texto con una de estas intenciones:\\n\\n📅 1. CALENDARIO & CITAS CON HORA\\n• "Cita con el dentista el viernes a las 4pm"\\n• "Reunión mañana a las 10:00"\\n\\n⏰ 2. RECORDATORIOS (CRON 6:00 AM)\\n• "Recuérdame comprar leche mañana"\\n• "El lunes hay que pagar el seguro"\\n\\n📄 3. DOCUMENTOS PDF / TXT / VAULT\\n• "Genera una guía de trámites en PDF..."\\n• "Haz un resumen en TXT de..."\\n• "Para el Kindle: [Lectura en Markdown]"\\n\\n✉️ 4. CORREOS GMAIL\\n• "Manda un correo a Lau / Martha / Fidel con..."\\n\\n💪 5. SALUD & HÁBITOS\\n• "Pesé 92.5 kilos hoy"\\n• "Fui al gym / Caminé 1 hora"`;
   navigator.clipboard.writeText(desc.replace(/\\\\n/g, '\\n'));
   const btn = document.getElementById('btn-copy-text');
   btn.innerText = '¡Copiado!';
@@ -248,7 +257,12 @@ async function simulateWhatsApp(event) {
     document.getElementById('sim-action-badge').innerText = (data.action || 'OK').toUpperCase();
     document.getElementById('sim-target-badge').innerText = 'Destino: ' + (data.target || 'fidel').toUpperCase();
     document.getElementById('sim-summary').innerText = data.summary || '';
-    document.getElementById('sim-reply').innerText = data.reply || '';
+    
+    let replyHtml = (data.reply || '').replace(/\n/g, '<br>');
+    if (data.attachment) {
+      replyHtml += `<br><br><span style="display:inline-block; font-size:0.75rem; background:rgba(239,68,68,0.25); color:#fca5a5; padding:0.25rem 0.5rem; border-radius:4px; font-weight:600;">📎 Archivo Adjunto: ${data.attachment.file_name} (${data.attachment.mimetype})</span>`;
+    }
+    document.getElementById('sim-reply').innerHTML = replyHtml;
     resultBox.style.display = 'block';
 
     // Recargar tabla de actividad

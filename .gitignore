@@ -21,6 +21,9 @@ venv.bak/
 # ==========================================
 *.lock
 data/*.json
+data/*.pdf
+data/*.png
+data/.temp_images/
 !data/.gitkeep
 .tmp_*
 

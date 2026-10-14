@@ -301,6 +301,54 @@ async function connectToWhatsApp() {
             }
           }
         }
+
+        // 3. ENVÍO DE DOCUMENTO ADJUNTO (PDF / TXT) SI FUE GENERADO POR LA IA
+        if (result && result.attachment && result.attachment.file_path) {
+          const att = result.attachment;
+          try {
+            if (fs.existsSync(att.file_path)) {
+              console.log(`[WhatsApp] Despachando adjunto (${att.file_name || 'documento'}) a ${remoteJid}...`);
+              const fileBuffer = fs.readFileSync(att.file_path);
+              const mime = att.mimetype || (att.file_path.endsWith('.pdf') ? 'application/pdf' : 'text/plain');
+              const fileName = att.file_name || path.basename(att.file_path);
+              const caption = att.caption || '';
+
+              let docMsg = null;
+              try {
+                docMsg = await sock.sendMessage(
+                  remoteJid,
+                  {
+                    document: fileBuffer,
+                    mimetype: mime,
+                    fileName: fileName,
+                    caption: caption,
+                  },
+                  { quoted: msg }
+                );
+              } catch (qDocErr) {
+                console.warn('[WhatsApp] Envío de adjunto con quote falló, reintentando directo:', qDocErr.message);
+                docMsg = await sock.sendMessage(
+                  remoteJid,
+                  {
+                    document: fileBuffer,
+                    mimetype: mime,
+                    fileName: fileName,
+                    caption: caption,
+                  }
+                );
+              }
+
+              if (docMsg?.key?.id) {
+                botSentMsgIds.add(docMsg.key.id);
+              }
+              console.log(`✓ [WhatsApp] Adjunto ${fileName} enviado con éxito al chat.`);
+            } else {
+              console.warn(`[WhatsApp] Archivo adjunto no encontrado en disco: ${att.file_path}`);
+            }
+          } catch (attErr) {
+            console.error('[WhatsApp] Error al despachar archivo adjunto:', attErr.message);
+          }
+        }
       } catch (webhookErr) {
         console.error('[WhatsApp] Error al invocar webhook:', webhookErr.message);
         try {
@@ -347,24 +395,47 @@ function startPushServer() {
         try {
           const data = JSON.parse(body || '{}');
           const text = data.text;
+          const attachment = data.attachment;
           const destJid = data.jid || targetGroupJid;
 
-          if (!text) {
+          if (!text && !attachment) {
             res.writeHead(400);
-            return res.end(JSON.stringify({ error: 'El campo text es requerido' }));
+            return res.end(JSON.stringify({ error: 'El campo text o attachment es requerido' }));
           }
           if (!activeSock) {
             res.writeHead(503);
             return res.end(JSON.stringify({ error: 'WhatsApp Bridge no está conectado aún' }));
           }
 
-          console.log(`[WhatsApp Push] Despachando mensaje proactivo a ${destJid}...`);
-          const sent = await activeSock.sendMessage(destJid, { text });
-          if (sent?.key?.id) {
-            botSentMsgIds.add(sent.key.id);
+          let sentId = null;
+          if (text) {
+            console.log(`[WhatsApp Push] Despachando mensaje proactivo a ${destJid}...`);
+            const sent = await activeSock.sendMessage(destJid, { text });
+            if (sent?.key?.id) {
+              botSentMsgIds.add(sent.key.id);
+              sentId = sent.key.id;
+            }
           }
+
+          if (attachment && attachment.file_path && fs.existsSync(attachment.file_path)) {
+            console.log(`[WhatsApp Push] Despachando adjunto proactivo ${attachment.file_name || 'documento'} a ${destJid}...`);
+            const fileBuffer = fs.readFileSync(attachment.file_path);
+            const mime = attachment.mimetype || (attachment.file_path.endsWith('.pdf') ? 'application/pdf' : 'text/plain');
+            const fileName = attachment.file_name || path.basename(attachment.file_path);
+            const docSent = await activeSock.sendMessage(destJid, {
+              document: fileBuffer,
+              mimetype: mime,
+              fileName: fileName,
+              caption: attachment.caption || '',
+            });
+            if (docSent?.key?.id) {
+              botSentMsgIds.add(docSent.key.id);
+              sentId = sentId || docSent.key.id;
+            }
+          }
+
           res.writeHead(200);
-          return res.end(JSON.stringify({ status: 'ok', id: sent?.key?.id }));
+          return res.end(JSON.stringify({ status: 'ok', id: sentId }));
         } catch (err) {
           console.error('[WhatsApp Push Error]:', err.message);
           res.writeHead(500);

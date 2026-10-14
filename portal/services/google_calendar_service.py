@@ -17,21 +17,30 @@ from pathlib import Path
 from typing import Any
 import urllib.parse
 import urllib.request
+import re
 import urllib.error
+import urllib.parse
+import urllib.request
 
-from app.constants import GMAIL_OAUTH_CLIENT_ID, GMAIL_OAUTH_CLIENT_SECRET
+from app.constants import (
+    GMAIL_OAUTH_CLIENT_ID,
+    GMAIL_OAUTH_CLIENT_SECRET,
+    GOOGLE_CALENDAR_IDS,
+    GOOGLE_CALENDAR_NAMES,
+)
 
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 TOKEN_FILE = DATA_DIR / "google_calendar_token.json"
+CALENDAR_CACHE_FILE = DATA_DIR / "google_calendars_cache.json"
 
 TIMEZONE = "America/Toronto"
 CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3"
 OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token"
 OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-CALENDAR_SCOPES = "https://www.googleapis.com/auth/calendar.events"
+CALENDAR_SCOPES = "https://www.googleapis.com/auth/calendar"
 
 
 def get_auth_url(redirect_uri: str) -> str:
@@ -138,21 +147,103 @@ def is_connected() -> bool:
     return bool(tokens and tokens.get("refresh_token"))
 
 
+def list_calendars() -> list[dict[str, Any]]:
+    """Obtiene la lista completa de calendarios accesibles en la cuenta de Google."""
+    token = get_valid_access_token()
+    if not token:
+        return []
+    url = f"{CALENDAR_API_BASE}/users/me/calendarList"
+    req = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            items = data.get("items", [])
+            # Guardar en caché local
+            try:
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                with open(CALENDAR_CACHE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(items, f, indent=2)
+            except Exception:
+                pass
+            return items
+    except Exception as exc:
+        logger.warning("No se pudo obtener calendarList de Google Calendar: %s", exc)
+        return []
+
+
+def resolve_calendar_for_requester(requester_or_person: str) -> tuple[str, str]:
+    """Resuelve el ID de Google Calendar y su nombre legible según quién pidió el evento.
+
+    Reglas solicitadas por Fidel:
+    - LauraG: si Laura pidió el evento o recordatorio.
+    - MarthaG: si Martha lo pidió.
+    - default/primary: si Fidel lo pidió o por defecto.
+
+    Returns:
+        tuple[str, str]: (calendar_id, calendar_display_name)
+    """
+    canon = (requester_or_person or "").strip().lower()
+
+    if any(k in canon for k in ("martha", "marta", "elena", "15149986313")):
+        target_role = "martha"
+        target_name = "MarthaG"
+    elif any(k in canon for k in ("lau", "laura", "lalis", "14389955725")):
+        target_role = "lau"
+        target_name = "LauraG"
+    else:
+        return "primary", "Principal (Fidel)"
+
+    # 1. Si hay un ID explícito configurado en constants.py o variables de entorno
+    explicit_id = GOOGLE_CALENDAR_IDS.get(target_role, "")
+    if explicit_id and explicit_id != target_name and ("@" in explicit_id or len(explicit_id) > 15):
+        return explicit_id, target_name
+
+    # 2. Consultar lista de calendarios en vivo (si hay conexión) o en caché local
+    calendars: list[dict[str, Any]] = []
+    if is_connected():
+        calendars = list_calendars()
+    if not calendars and CALENDAR_CACHE_FILE.is_file():
+        try:
+            with open(CALENDAR_CACHE_FILE, "r", encoding="utf-8") as f:
+                calendars = json.load(f)
+        except Exception:
+            calendars = []
+
+    for cal in calendars:
+        summary = (cal.get("summary") or "").strip()
+        clean_sum = re.sub(r"\s+", "", summary.lower())
+        clean_target = re.sub(r"\s+", "", target_name.lower())
+        if clean_sum == clean_target or clean_target in clean_sum:
+            cal_id = cal.get("id")
+            if cal_id:
+                logger.info("Calendario %s resuelto exitosamente al ID: %s", target_name, cal_id)
+                return cal_id, summary
+
+    # 3. Fallback: retornar el nombre solicitado
+    return target_name, target_name
+
+
 def create_calendar_event(
     title: str,
     description: str,
     start_dt: datetime,
     end_dt: datetime,
     attendee_emails: list[str] | None = None,
+    calendar_id: str = "primary",
 ) -> tuple[bool, str, str | None]:
-    """Crea un evento directamente en el calendario principal de Google Calendar.
+    """Crea un evento directamente en el calendario indicado de Google Calendar.
 
     Args:
         title: Título del evento.
         description: Descripción o notas.
         start_dt: Fecha y hora de inicio.
         end_dt: Fecha y hora de fin.
-        attendee_emails: Lista de correos de invitados (Lau, etc.).
+        attendee_emails: Lista de correos de invitados (Lau, Martha, etc.).
+        calendar_id: ID del calendario ('primary', 'LauraG', 'MarthaG' o id hash de Google).
 
     Returns:
         tuple[bool, str, str | None]: (Éxito, Mensaje, URL del evento en Google Calendar)
@@ -186,7 +277,8 @@ def create_calendar_event(
     }
 
     # sendUpdates=all envía notificaciones oficiales de Google a todos los invitados
-    url = f"{CALENDAR_API_BASE}/calendars/primary/events?sendUpdates=all"
+    encoded_cal_id = urllib.parse.quote(calendar_id, safe="")
+    url = f"{CALENDAR_API_BASE}/calendars/{encoded_cal_id}/events?sendUpdates=all"
     req_body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -203,11 +295,11 @@ def create_calendar_event(
             res_data = json.loads(resp.read().decode("utf-8"))
             html_link = res_data.get("htmlLink")
             event_id = res_data.get("id")
-            logger.info("Evento creado en Google Calendar exitosamente: %s (%s)", title, event_id)
-            return True, "Evento creado exitosamente en Google Calendar", html_link
+            logger.info("Evento creado en Google Calendar (%s) exitosamente: %s (%s)", calendar_id, title, event_id)
+            return True, f"Evento creado exitosamente en calendario {calendar_id}", html_link
     except urllib.error.HTTPError as exc:
         err_body = exc.read().decode("utf-8")
-        logger.error("Error HTTP de Google Calendar API (%d): %s", exc.code, err_body)
+        logger.error("Error HTTP de Google Calendar API (%d) en calendario %s: %s", exc.code, calendar_id, err_body)
         return False, f"Error Google Calendar ({exc.code}): {err_body}", None
     except Exception as exc:
         logger.error("Excepción al llamar Google Calendar API: %s", exc)
