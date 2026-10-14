@@ -93,7 +93,9 @@ def _create_default_profile(member: str, path: Path) -> None:
     canonical_key = "fidel" if member == "Fidel" else ("lau" if member == "Laura" else "martha")
     info = MEMBERS_INFO.get(canonical_key, {})
     email = info.get("email", "")
+    emails = info.get("emails", [email] if email else [])
     role = info.get("role", "")
+    emails_md = "\n".join(f"  - `{em}`" for em in emails) if emails else f"  - `{email}`"
 
     content = f"""---
 titulo: "Ficha de Perfil - {member}"
@@ -105,7 +107,9 @@ tags: [perfil, contacto, familia]
 # Perfil: {member}
 
 - **Nombre Completo:** {info.get("name", member)}
-- **Correo Principal:** `{email}`
+- **Correo Principal (Default):** `{email}`
+- **Correos Registrados:**
+{emails_md}
 - **Rol / Relación:** {role}
 - **Última Actualización:** {today_str}
 
