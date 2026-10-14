@@ -408,9 +408,15 @@ function startPushServer() {
           }
 
           let sentId = null;
+          const mentions = Array.isArray(data.mentions) ? data.mentions : [];
+
           if (text) {
-            console.log(`[WhatsApp Push] Despachando mensaje proactivo a ${destJid}...`);
-            const sent = await activeSock.sendMessage(destJid, { text });
+            console.log(`[WhatsApp Push] Despachando mensaje proactivo a ${destJid} (Menciones: ${mentions.length})...`);
+            const msgPayload = { text };
+            if (mentions.length > 0) {
+              msgPayload.mentions = mentions;
+            }
+            const sent = await activeSock.sendMessage(destJid, msgPayload);
             if (sent?.key?.id) {
               botSentMsgIds.add(sent.key.id);
               sentId = sent.key.id;
@@ -422,12 +428,16 @@ function startPushServer() {
             const fileBuffer = fs.readFileSync(attachment.file_path);
             const mime = attachment.mimetype || (attachment.file_path.endsWith('.pdf') ? 'application/pdf' : 'text/plain');
             const fileName = attachment.file_name || path.basename(attachment.file_path);
-            const docSent = await activeSock.sendMessage(destJid, {
+            const docPayload = {
               document: fileBuffer,
               mimetype: mime,
               fileName: fileName,
               caption: attachment.caption || '',
-            });
+            };
+            if (mentions.length > 0) {
+              docPayload.mentions = mentions;
+            }
+            const docSent = await activeSock.sendMessage(destJid, docPayload);
             if (docSent?.key?.id) {
               botSentMsgIds.add(docSent.key.id);
               sentId = sentId || docSent.key.id;

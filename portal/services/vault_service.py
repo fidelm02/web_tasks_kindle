@@ -20,7 +20,7 @@ from typing import Any
 import uuid
 
 from filelock import FileLock
-from app.constants import VAULT_DIR, MEMBERS_INFO
+from app.constants import VAULT_DIR, MEMBERS_INFO, get_member_phone, get_member_jid
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +289,8 @@ def add_reminder(
     reminder_date: str,
     text: str,
     time_str: str | None = None,
+    requester_phone: str | None = None,
+    target_phone: str | None = None,
 ) -> dict[str, Any]:
     """Registra un recordatorio en reminders.json y en Recordatorios.md del destinatario.
 
@@ -298,6 +300,8 @@ def add_reminder(
         reminder_date: Fecha objetivo en formato YYYY-MM-DD.
         text: Descripción del compromiso o recordatorio.
         time_str: Hora opcional (ej. "15:00") si se indicó.
+        requester_phone: Teléfono o identificador del solicitante.
+        target_phone: Teléfono o identificador del destinatario.
 
     Returns:
         dict: Objeto del recordatorio creado.
@@ -308,11 +312,16 @@ def add_reminder(
     reminder_id = str(uuid.uuid4())[:8]
     created_at = datetime.now().isoformat()
 
+    r_phone = requester_phone or get_member_phone(canon_requester) or get_member_phone(requester)
+    t_phone = target_phone or get_member_phone(canon_target) or get_member_phone(target)
+
     reminder_entry = {
         "id": reminder_id,
         "created_at": created_at,
         "requester": canon_requester,
         "target": canon_target,
+        "requester_phone": r_phone,
+        "target_phone": t_phone,
         "reminder_date": reminder_date,
         "time": time_str,
         "text": text,

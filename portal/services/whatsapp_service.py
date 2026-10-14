@@ -77,8 +77,9 @@ TAXONOMÍA DE ACCIONES (Elige con máxima precisión):
    - "priority": "high", "normal", o "low".
    - "due_date": Fecha YYYY-MM-DD o null.
 
-3. "reminder" (Recordatorio / Compromiso para el Cron de las 6:00 AM):
-   - CUÁNDO USAR: Es la acción POR DEFECTO para cualquier tarea, encargo, trámite, compra o cosa por hacer en una fecha que NO tenga hora fija ni diga "para el kindle" (ej: "recuérdame comprar leche mañana", "el viernes hay que renovar el pasaporte", "recuérdale a Lau llamar al doctor", "tenemos que pagar la renta el 1").
+3. "reminder" (Recordatorio / Compromiso para el Cron de las 6:00 AM en WhatsApp):
+   - CUÁNDO USAR: Es la acción POR DEFECTO para cualquier tarea, encargo, trámite, compra o cosa por hacer en una fecha que NO tenga hora fija ni diga explícitamente "para el kindle" (ej: "recuérdame comprar leche mañana", "el viernes hay que renovar el pasaporte", "recuérdale a Lau llamar al doctor", "tenemos que pagar la renta el 1").
+   - REGLA: Los recordatorios NO van a la pantalla del Kindle. Se almacenan para que el Cron de las 6:00 AM envíe un mensaje al grupo de WhatsApp etiquetando con @ a la persona solicitante y destinataria.
    - "target": "fidel", "lau", o "martha".
    - "requester": Nombre de quien habla ("fidel", "lau", "martha").
    - "reminder_date": Fecha calculada en formato YYYY-MM-DD para la cual se debe recordar (ej. si dicen "mañana", "el viernes", "en 3 días"). Si no especifican fecha, calcular para mañana.
@@ -643,6 +644,7 @@ def process_whatsapp_message(
             target=target,
             reminder_date=due_date,
             text=title,
+            requester_phone=sender_phone,
         )
 
         reply_text = (

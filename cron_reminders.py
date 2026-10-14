@@ -29,6 +29,8 @@ REPO_ROOT = Path(__file__).resolve().parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from typing import Any
+from app.constants import get_member_jid, get_member_phone
 from portal.services import vault_service
 
 logging.basicConfig(
@@ -40,9 +42,13 @@ logger = logging.getLogger("cron_reminders")
 BRIDGE_PUSH_URL = "http://127.0.0.1:8095/api/send"
 
 
-def send_whatsapp_message(text: str) -> bool:
-    """Envía un mensaje al grupo Chismoso vía el microservidor push de WhatsApp Bridge."""
-    payload = json.dumps({"text": text}).encode("utf-8")
+def send_whatsapp_message(text: str, mentions: list[str] | None = None) -> bool:
+    """Envía un mensaje al grupo Chismoso vía el microservidor push de WhatsApp Bridge con menciones."""
+    body: dict[str, Any] = {"text": text}
+    if mentions:
+        body["mentions"] = mentions
+
+    payload = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         BRIDGE_PUSH_URL,
         data=payload,
@@ -52,7 +58,7 @@ def send_whatsapp_message(text: str) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            logger.info("Mensaje despachado a WhatsApp exitosamente: %s", data.get("id"))
+            logger.info("Mensaje despachado a WhatsApp exitosamente: %s (Menciones: %s)", data.get("id"), mentions)
             return True
     except urllib.error.URLError as exc:
         logger.error("No se pudo contactar con WhatsApp Bridge (puerto 8095): %s", exc)
@@ -63,7 +69,7 @@ def send_whatsapp_message(text: str) -> bool:
 
 
 def run_reminders_check() -> int:
-    """Ejecuta la revisión de recordatorios para mañana y para hoy."""
+    """Ejecuta la revisión de recordatorios para mañana y para hoy, etiquetando con @."""
     today = date.today()
     tomorrow = today + timedelta(days=1)
 
@@ -89,18 +95,42 @@ def run_reminders_check() -> int:
             continue
 
         target_display = target.capitalize()
-        req_notice = f" (Pedido por {requester.capitalize()})" if requester.lower() != target.lower() else ""
+        requester_display = requester.capitalize()
+
+        # Resolver teléfonos y JIDs para etiquetado (@phone)
+        t_phone = rem.get("target_phone") or get_member_phone(target)
+        r_phone = rem.get("requester_phone") or get_member_phone(requester)
+
+        t_jid = get_member_jid(target) or (f"{t_phone}@s.whatsapp.net" if t_phone else None)
+        r_jid = get_member_jid(requester) or (f"{r_phone}@s.whatsapp.net" if r_phone else None)
+
+        mentions_list: list[str] = []
+        if t_jid and t_jid not in mentions_list:
+            mentions_list.append(t_jid)
+        if r_jid and r_jid not in mentions_list:
+            mentions_list.append(r_jid)
+
+        target_tag = f"@{t_phone}" if t_phone else f"*{target_display}*"
+        req_tag = f"@{r_phone}" if r_phone else f"*{requester_display}*"
+
+        is_same_person = requester.lower() == target.lower()
+        req_notice = f" (Pedido por {req_tag})" if not is_same_person else ""
 
         # CASO 1: AVISO EL DÍA ANTERIOR (Mañana es la fecha)
         if rem_date == tomorrow_str and not notified_day_before:
+            if is_same_person:
+                greeting = f"Hola {target_tag}, me pediste que te recordara que mañana tienes que:"
+            else:
+                greeting = f"Hola {target_tag}, {req_tag} pidió recordarte que mañana tienes que:"
+
             msg = (
                 f"🔔 *Recordatorio para mañana ({tomorrow_str})*\n\n"
-                f"Hola *{target_display}*, me pediste que te recordara que mañana tienes que:\n"
-                f"👉 *{text}*{req_notice}\n\n"
+                f"{greeting}\n"
+                f"👉 *{text}*\n\n"
                 f"_(Te volveré a avisar mañana a las 6:00 AM)_"
             )
-            logger.info("Enviando aviso de día anterior para %s: %s", target_display, text)
-            if send_whatsapp_message(msg):
+            logger.info("Enviando aviso de día anterior para %s (Menciones: %s): %s", target_display, mentions_list, text)
+            if send_whatsapp_message(msg, mentions=mentions_list):
                 vault_service.mark_reminder_notified(rem_id, notified_day_before=True)
                 notifications_sent += 1
 
@@ -109,12 +139,12 @@ def run_reminders_check() -> int:
             time_tag = f" (a las {rem.get('time')})" if rem.get("time") else ""
             msg = (
                 f"⏰ *Recordatorio de hoy ({today_str})*\n\n"
-                f"Buenos días *{target_display}*, hoy tienes programado{time_tag}:\n"
+                f"Buenos días {target_tag}, hoy tienes programado{time_tag}:\n"
                 f"👉 *{text}*{req_notice}\n\n"
                 f"¡Que tengas un excelente día!"
             )
-            logger.info("Enviando aviso del mero día para %s: %s", target_display, text)
-            if send_whatsapp_message(msg):
+            logger.info("Enviando aviso del mero día para %s (Menciones: %s): %s", target_display, mentions_list, text)
+            if send_whatsapp_message(msg, mentions=mentions_list):
                 vault_service.mark_reminder_notified(rem_id, notified_day_of=True)
                 notifications_sent += 1
 
